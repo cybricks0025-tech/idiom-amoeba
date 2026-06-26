@@ -134,7 +134,6 @@ export default function Home() {
     timeLeft: number;
     char: string;
   } | null>(null);
-  const [bombStepCounter, setBombStepCounter] = useState<number>(0);
   const [selectedRelicInfo, setSelectedRelicInfo] = useState<{ title: string; desc: string; icon: string } | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<{ word: string; hpLost: number } | null>(null);
 
@@ -338,7 +337,6 @@ export default function Home() {
     setBossHp(0);
     setRockCells(new Set());
     setActiveBomb(null);
-    setBombStepCounter(0);
     setSelectedRelicInfo(null);
     setDuplicateWarning(null);
   };
@@ -393,7 +391,6 @@ export default function Home() {
     setBossHp(0);
     setRockCells(new Set());
     setActiveBomb(null);
-    setBombStepCounter(0);
     setSelectedRelicInfo(null);
     setDuplicateWarning(null);
 
@@ -963,7 +960,6 @@ export default function Home() {
       }
       setRockCells(rocks);
       setActiveBomb(null);
-      setBombStepCounter(0);
       setSelectedRelicInfo(null);
       setDuplicateWarning(null);
       
@@ -989,13 +985,19 @@ export default function Home() {
     const size = currentGrid.length;
     const centerIdx = Math.floor(size / 2);
     
-    // Find all cells occupied by user letters (excluding Boss core 3x3)
+    // Find all cells occupied by user letters (excluding Boss core)
     const candidateCells: { r: number; c: number; char: string }[] = [];
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         const char = currentGrid[r][c];
         if (char !== "") {
-          const isBoss = (r >= centerIdx - 1 && r <= centerIdx + 1 && c >= centerIdx - 1 && c <= centerIdx + 1);
+          const isBoss = chapter === 1 
+            ? (r >= centerIdx - 1 && r <= centerIdx + 1 && c >= centerIdx - 1 && c <= centerIdx + 1)
+            : (
+                (r === centerIdx - 1 && c === centerIdx) ||
+                (r === centerIdx && (c === centerIdx || c === centerIdx + 1)) ||
+                (r === centerIdx + 1 && (c === centerIdx - 1 || c === centerIdx || c === centerIdx + 1))
+              );
           if (!isBoss) {
             candidateCells.push({ r, c, char });
           }
@@ -1040,7 +1042,13 @@ export default function Home() {
         for (let c = Math.max(0, bombC - 1); c <= Math.min(prevGrid[0].length - 1, bombC + 1); c++) {
           const size = prevGrid.length;
           const centerIdx = Math.floor(size / 2);
-          const isBoss = (r >= centerIdx - 1 && r <= centerIdx + 1 && c >= centerIdx - 1 && c <= centerIdx + 1);
+          const isBoss = chapter === 1 
+            ? (r >= centerIdx - 1 && r <= centerIdx + 1 && c >= centerIdx - 1 && c <= centerIdx + 1)
+            : (
+                (r === centerIdx - 1 && c === centerIdx) ||
+                (r === centerIdx && (c === centerIdx || c === centerIdx + 1)) ||
+                (r === centerIdx + 1 && (c === centerIdx - 1 || c === centerIdx || c === centerIdx + 1))
+              );
           if (!isBoss) {
             newGrid[r][c] = "";
           }
@@ -1279,10 +1287,19 @@ export default function Home() {
     if (gameMode === "dungeon" && bossActive) {
       const size = newGrid.length;
       const centerIdx = Math.floor(size / 2);
-      for (let r = centerIdx - 1; r <= centerIdx + 1; r++) {
-        for (let c = centerIdx - 1; c <= centerIdx + 1; c++) {
-          bossCells.push({ r, c });
+      if (chapter === 1) {
+        for (let r = centerIdx - 1; r <= centerIdx + 1; r++) {
+          for (let c = centerIdx - 1; c <= centerIdx + 1; c++) {
+            bossCells.push({ r, c });
+          }
         }
+      } else {
+        bossCells.push({ r: centerIdx - 1, c: centerIdx });
+        bossCells.push({ r: centerIdx, c: centerIdx });
+        bossCells.push({ r: centerIdx, c: centerIdx + 1 });
+        bossCells.push({ r: centerIdx + 1, c: centerIdx - 1 });
+        bossCells.push({ r: centerIdx + 1, c: centerIdx });
+        bossCells.push({ r: centerIdx + 1, c: centerIdx + 1 });
       }
 
       // Check if time bomb defused
@@ -1363,16 +1380,7 @@ export default function Home() {
         }
       } else if (chapter === 2) {
         // Boss 2 Action (沙漏文曲星 time bomb counter)
-        if (!activeBomb) {
-          setBombStepCounter((prev) => {
-            const next = prev + 1;
-            if (next >= 3) {
-              spawnTimeBomb(newGrid);
-              return 0;
-            }
-            return next;
-          });
-        }
+        spawnTimeBomb(newGrid);
       }
     }
 
@@ -1498,22 +1506,29 @@ export default function Home() {
           newGrid[centerIdx + 1][centerIdx + 1] = "巴";
           addLog("⚠️ 【警告】第一章 BOSS【贅字史萊姆】降臨！牠吞噬了網格中央 3x3 空間，成為新的阿米巴核心！", "error");
         } else {
-          newGrid[centerIdx - 1][centerIdx - 1] = "沙";
-          newGrid[centerIdx - 1][centerIdx] = "漏";
-          newGrid[centerIdx - 1][centerIdx + 1] = "文";
-          newGrid[centerIdx][centerIdx - 1] = "曲";
-          newGrid[centerIdx][centerIdx] = "星";
-          newGrid[centerIdx][centerIdx + 1] = "⏳";
-          newGrid[centerIdx + 1][centerIdx - 1] = "阿";
-          newGrid[centerIdx + 1][centerIdx] = "米";
-          newGrid[centerIdx + 1][centerIdx + 1] = "巴";
-          addLog("⚠️ 【警告】第二章 BOSS【沙漏文曲星】降臨！牠佔領了網格中央 3x3 空間，時空之砂開始逆流！", "error");
+          // Clear the area first
+          newGrid[centerIdx - 1][centerIdx] = "沙";
+          newGrid[centerIdx][centerIdx] = "漏";
+          newGrid[centerIdx][centerIdx + 1] = "文";
+          newGrid[centerIdx + 1][centerIdx - 1] = "曲";
+          newGrid[centerIdx + 1][centerIdx] = "星";
+          newGrid[centerIdx + 1][centerIdx + 1] = "⏳";
+          addLog("⚠️ 【警告】第二章 BOSS【沙漏文曲星】降臨！牠佔領了網格中央金字塔型空間，時空之砂開始逆流！", "error");
         }
 
-        for (let r = centerIdx - 1; r <= centerIdx + 1; r++) {
-          for (let c = centerIdx - 1; c <= centerIdx + 1; c++) {
-            delete newCellOwners[`${r},${c}`];
+        if (chapter === 1) {
+          for (let r = centerIdx - 1; r <= centerIdx + 1; r++) {
+            for (let c = centerIdx - 1; c <= centerIdx + 1; c++) {
+              delete newCellOwners[`${r},${c}`];
+            }
           }
+        } else {
+          delete newCellOwners[`${centerIdx - 1},${centerIdx}`];
+          delete newCellOwners[`${centerIdx},${centerIdx}`];
+          delete newCellOwners[`${centerIdx},${centerIdx + 1}`];
+          delete newCellOwners[`${centerIdx + 1},${centerIdx - 1}`];
+          delete newCellOwners[`${centerIdx + 1},${centerIdx}`];
+          delete newCellOwners[`${centerIdx + 1},${centerIdx + 1}`];
         }
         setGrid(newGrid);
         setCellOwners(newCellOwners);
@@ -2264,7 +2279,7 @@ export default function Home() {
                       ></div>
                     </div>
                     <p className="text-[10px] text-red-400/80 text-center mt-1.5 font-medium select-none">
-                      ⚠️ 提示：在 BOSS 核心（中央 3x3 紫色區域）相鄰的格子放置成語即可造成傷害{chapter === 2 ? "；交叉穿過時空炸彈格解鎖可造成雙倍傷害且不受距離限制" : ""}！
+                      ⚠️ 提示：在 BOSS 核心（中央區域）相鄰的格子放置成語即可造成傷害{chapter === 2 ? "；交叉穿過時空炸彈格解鎖可造成雙倍傷害且不受距離限制" : ""}！
                     </p>
                   </div>
                 )}
@@ -2341,7 +2356,15 @@ export default function Home() {
                             const isRock = rockCells.has(`${rIdx},${cIdx}`);
                             const size = grid.length;
                             const centerIdx = Math.floor(size / 2);
-                            const isBossCell = bossActive && (rIdx >= centerIdx - 1 && rIdx <= centerIdx + 1 && cIdx >= centerIdx - 1 && cIdx <= centerIdx + 1);
+                            const isBossCell = bossActive && (
+                              chapter === 1
+                                ? (rIdx >= centerIdx - 1 && rIdx <= centerIdx + 1 && cIdx >= centerIdx - 1 && cIdx <= centerIdx + 1)
+                                : (
+                                    (rIdx === centerIdx - 1 && cIdx === centerIdx) ||
+                                    (rIdx === centerIdx && (cIdx === centerIdx || cIdx === centerIdx + 1)) ||
+                                    (rIdx === centerIdx + 1 && (cIdx === centerIdx - 1 || cIdx === centerIdx || cIdx === centerIdx + 1))
+                                  )
+                            );
                             const isBombCell = activeBomb && activeBomb.r === rIdx && activeBomb.c === cIdx;
 
                             if (isBossCell) {
@@ -3043,19 +3066,19 @@ export default function Home() {
                     ❤️ <strong className="text-text-primary">生命機制</strong>：初始擁有 3 點生命。打錯字、非成語或違反接龍/重複規則扣除 1 點。歸零則冒險失敗。
                   </p>
                   <p>
-                    🔄 <strong className="text-text-primary">重複放置限制</strong>：同一個成語在同一個章節/棋局中最多可以重複放置 2 次，嘗試放置第 3 次將視為違反規則扣除 1 生命值！
+                    🔄 <strong className="text-text-primary">重複放置限制</strong>：地牢模式中允許重複使用已用過的成語，但每次使用重複成語都會扣除 1 點生命值 (HP)！
                   </p>
                   <p>
                     💡 <strong className="text-text-primary">提示限制</strong>：初始 3 次提示。使用提示消耗提示次數，次數為 0時無法再使用。
                   </p>
                   <p>
-                    👹 <strong className="text-text-primary">首領降臨與機制</strong>：每章得分達到目標分時 BOSS 降臨（第一章 300 分，第二章 500 分）。BOSS 會佔據中央 3x3 區域。
+                    👹 <strong className="text-text-primary">首領降臨與機制</strong>：每章得分達到目標分時 BOSS 降臨（第一章 300 分，第二章 500 分）。BOSS 會佔據中央區域。
                   </p>
                   <p>
                     🦠 <strong className="text-text-primary">第一章【贅字史萊姆】</strong>：每回合會噴灑「贅字阻擋格」封鎖網格。在 BOSS 核心相鄰格放置成語可對其造成傷害。
                   </p>
                   <p>
-                    ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每 3 回合鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
+                    ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每次放置成語都會鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
                   </p>
                   <p>
                     🏆 <strong className="text-text-primary">遺物系統</strong>：達到里程碑得分時（第一章 100/200 分，第二章 200/400 分）觸發遺物三選一，獲得強大的被動增益！
