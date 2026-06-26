@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Sleek Modern Light Mode (Default) */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  --bg-gradient-from: #f8fafc;
+  --bg-gradient-via: #f1f5f9;
+  --bg-gradient-to: #e2e8f0;
+  --panel-bg: rgba(255, 255, 255, 0.75);
+  --panel-border: rgba(147, 51, 234, 0.15);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  
+  --input-bg: rgba(255, 255, 255, 0.95);
+  --input-border: #cbd5e1;
+  --header-border: rgba(147, 51, 234, 0.2);
+  
+  --cell-bg-default: rgba(255, 255, 255, 0.95);
+  --cell-border-default: rgba(226, 232, 240, 0.9);
+  --cell-text-default: #475569;
+  
+  --cell-bg-filled: linear-gradient(to bottom right, #ffffff, rgba(243, 232, 255, 0.95));
+  --cell-border-filled: rgba(168, 85, 247, 0.45);
+  --cell-text-filled: #b5179e;
+  
+  --glow-color: rgba(181, 23, 158, 0.15);
+  --crt-opacity: 0.04;
+  --legend-text: #334155;
+  
+  --btn-primary-bg: #8b5cf6;
+  --btn-primary-text: #ffffff;
+
+  --cell-bg-p1: linear-gradient(to bottom right, #ffffff, rgba(224, 242, 254, 0.8));
+  --cell-border-p1: rgba(14, 165, 233, 0.5);
+  --cell-text-p1: #0369a1;
+  
+  --cell-bg-p2: linear-gradient(to bottom right, #ffffff, rgba(252, 231, 243, 0.8));
+  --cell-border-p2: rgba(244, 63, 94, 0.5);
+  --cell-text-p2: #be185d;
+
+  --log-p1-text: #0369a1;
+  --log-p2-text: #be185d;
+  --log-success-text: #15803d;
+  --log-error-text: #b91c1c;
+  --log-system-text: #15803d;
+  --log-info-text: #475569;
+}
+
+.dark {
+  /* Dark Cyberpunk Theme */
+  --background: #050508;
+  --foreground: #f4f4f5;
+
+  --bg-gradient-from: #120a21;
+  --bg-gradient-via: #050508;
+  --bg-gradient-to: #030305;
+  --panel-bg: rgba(5, 5, 8, 0.75);
+  --panel-border: rgba(147, 51, 234, 0.2);
+  --text-primary: #f4f4f5;
+  --text-secondary: #71717a;
+  
+  --input-bg: rgba(0, 0, 0, 0.65);
+  --input-border: #27272a;
+  --header-border: rgba(147, 51, 234, 0.2);
+  
+  --cell-bg-default: rgba(9, 9, 11, 0.9);
+  --cell-border-default: rgba(39, 39, 42, 0.8);
+  --cell-text-default: #a1a1aa;
+  
+  --cell-bg-filled: linear-gradient(to bottom right, #18181b, rgba(88, 28, 135, 0.8));
+  --cell-border-filled: rgba(168, 85, 247, 0.35);
+  --cell-text-filled: #ec4899;
+  
+  --glow-color: rgba(236, 72, 153, 0.4);
+  --crt-opacity: 0.75;
+  --legend-text: #a1a1aa;
+  
+  --btn-primary-bg: #ec4899;
+  --btn-primary-text: #ffffff;
+
+  --cell-bg-p1: linear-gradient(to bottom right, #18181b, rgba(8, 47, 73, 0.6));
+  --cell-border-p1: rgba(34, 211, 238, 0.4);
+  --cell-text-p1: #22d3ee;
+  
+  --cell-bg-p2: linear-gradient(to bottom right, #18181b, rgba(131, 24, 67, 0.6));
+  --cell-border-p2: rgba(244, 63, 94, 0.4);
+  --cell-text-p2: #f43f5e;
+
+  --log-p1-text: #22d3ee;
+  --log-p2-text: #f43f5e;
+  --log-success-text: #4ade80;
+  --log-error-text: #f87171;
+  --log-system-text: #4ade80;
+  --log-info-text: #a1a1aa;
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-brand-bg-from: var(--bg-gradient-from);
+  --color-brand-bg-via: var(--bg-gradient-via);
+  --color-brand-bg-to: var(--bg-gradient-to);
+  --color-panel-bg: var(--panel-bg);
+  --color-panel-border: var(--panel-border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-header-border: var(--header-border);
+  --color-cell-bg-default: var(--cell-bg-default);
+  --color-cell-border-default: var(--cell-border-default);
+  --color-cell-text-default: var(--cell-text-default);
+  --color-cell-bg-filled: var(--cell-bg-filled);
+  --color-cell-border-filled: var(--cell-border-filled);
+  --color-cell-text-filled: var(--cell-text-filled);
+  
+  --color-btn-primary-bg: var(--btn-primary-bg);
+  --color-btn-primary-text: var(--btn-primary-text);
+
+  --color-cell-bg-p1: var(--cell-bg-p1);
+  --color-cell-border-p1: var(--cell-border-p1);
+  --color-cell-text-p1: var(--cell-text-p1);
+  --color-cell-bg-p2: var(--cell-bg-p2);
+  --color-cell-border-p2: var(--cell-border-p2);
+  --color-cell-text-p2: var(--cell-text-p2);
+
+  --color-log-p1-text: var(--log-p1-text);
+  --color-log-p2-text: var(--log-p2-text);
+  --color-log-success-text: var(--log-success-text);
+  --color-log-error-text: var(--log-error-text);
+  --color-log-system-text: var(--log-system-text);
+  --color-log-info-text: var(--log-info-text);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--panel-border);
+    border-radius: 999px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
