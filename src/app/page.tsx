@@ -39,6 +39,34 @@ const STARTING_IDIOMS = [
   "開天闢地", "一馬當先", "眾志成城", "名列前茅", "風調雨順", "國泰民安", "萬事如意", "蒸蒸日上", "前程似錦", "馬到成功",
 ];
 
+const RELIC_DETAILS: Record<string, { title: string; desc: string; icon: string }> = {
+  membrane: {
+    title: "再生細胞膜",
+    desc: "最大生命值 +1，且生命值已補滿。",
+    icon: "🧬"
+  },
+  radar: {
+    title: "突觸雷達",
+    desc: "獲得 2 次提示次數。此後每過一關額外補充 1 次提示！",
+    icon: "📡"
+  },
+  prepared: {
+    title: "有備無患",
+    desc: "提示上限 +2，且獲得 2 次提示。提示後下一個成語得分與對 BOSS 傷害提升 50%！",
+    icon: "🛡️"
+  },
+  color: {
+    title: "色彩斑斕",
+    desc: "成語中若包含顏色字（如紅、黃、藍、綠、黑、白等），得分翻倍且回復 1 點生命值！",
+    icon: "🎨"
+  },
+  autophagy: {
+    title: "細胞自噬",
+    desc: "達成 Combo 2x 或以上時，隨機淨化清除盤面上一個贅字格！",
+    icon: "🦠"
+  }
+};
+
 export default function Home() {
   // --- Theme State ---
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -49,7 +77,7 @@ export default function Home() {
   }, []);
 
   // --- Game Modes States ---
-  const [gameMode, setGameMode] = useState<"free" | "challenge" | "battle">("free");
+  const [gameMode, setGameMode] = useState<"free" | "challenge" | "battle" | "dungeon">("dungeon");
   const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle");
 
   // --- Grid & Placements ---
@@ -79,11 +107,30 @@ export default function Home() {
   const [winnerOverride, setWinnerOverride] = useState<1 | 2 | null>(null);
   const [charMap, setCharMap] = useState<Record<string, string>>({});
 
+  // --- Dungeon / Roguelike States ---
+  const [chapter, setChapter] = useState<number>(1);
+  const [hp, setHp] = useState<number>(3);
+  const [maxHp, setMaxHp] = useState<number>(3);
+  const [hintsCount, setHintsCount] = useState<number>(3);
+  const [maxHints, setMaxHints] = useState<number>(3);
+  const [chapterScore, setChapterScore] = useState<number>(0);
+  const [relics, setRelics] = useState<string[]>([]);
+  const [relicChoices, setRelicChoices] = useState<string[] | null>(null);
+  const [relicCheckpointsTriggered, setRelicCheckpointsTriggered] = useState<Set<number>>(new Set());
+  const [preparedBonusActive, setPreparedBonusActive] = useState<boolean>(false);
+  const [showVictoryOverlay, setShowVictoryOverlay] = useState<boolean>(false);
+
+  // --- Boss & Obstacles States ---
+  const [bossActive, setBossActive] = useState<boolean>(false);
+  const [bossHp, setBossHp] = useState<number>(0);
+  const [bossMaxHp, setBossMaxHp] = useState<number>(300);
+  const [rockCells, setRockCells] = useState<Set<string>>(new Set());
+
   const convertToTraditional = (str: string) => {
     return str.split("").map((char) => charMap[char] || char).join("");
   };
   
-  // Battle Mode specific
+  // Battle Mode specific (retained for compatibility/potential future PvP)
   const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
   const [consecutivePasses, setConsecutivePasses] = useState<number>(0);
   const [lives, setLives] = useState<{ p1: number; p2: number }>({ p1: 5, p2: 5 });
@@ -220,7 +267,7 @@ export default function Home() {
     return list;
   };
   // --- Reset Game with confirmation ---
-  const resetGame = (mode: "free" | "challenge" | "battle") => {
+  const resetGame = (mode: "free" | "challenge" | "battle" | "dungeon") => {
     setGrid(Array(15).fill(null).map(() => Array(15).fill("")));
     setScores({ p1: 0, p2: 0 });
     setLives({ p1: 5, p2: 5 });
@@ -234,9 +281,25 @@ export default function Home() {
     setWinnerOverride(null);
     setNutrients([]);
     setLogs([]);
-    setTimeLeft(mode === "battle" ? 60 : mode === "challenge" ? 120 : 90);
+    setTimeLeft(mode === "challenge" ? 120 : mode === "battle" ? 60 : 90);
     setLastTimeBonus(0);
     setTimerBonusTrigger(0);
+    
+    // Dungeon specific reset
+    setChapter(1);
+    setHp(3);
+    setMaxHp(3);
+    setHintsCount(3);
+    setMaxHints(3);
+    setChapterScore(0);
+    setRelics([]);
+    setRelicChoices(null);
+    setRelicCheckpointsTriggered(new Set());
+    setPreparedBonusActive(false);
+    setShowVictoryOverlay(false);
+    setBossActive(false);
+    setBossHp(0);
+    setRockCells(new Set());
   };
 
   // Switch modes handler
@@ -268,7 +331,25 @@ export default function Home() {
     setCellOwners({});
     setConsecutivePasses(0);
     setCurrentPlayer(1);
-    
+    setLastTimeBonus(0);
+    setTimerBonusTrigger(0);
+
+    // Dungeon specific initialization
+    setChapter(1);
+    setHp(3);
+    setMaxHp(3);
+    setHintsCount(3);
+    setMaxHints(3);
+    setChapterScore(0);
+    setRelics([]);
+    setRelicChoices(null);
+    setRelicCheckpointsTriggered(new Set());
+    setPreparedBonusActive(false);
+    setShowVictoryOverlay(false);
+    setBossActive(false);
+    setBossHp(0);
+    setRockCells(new Set());
+
     // Auto-place random starter word in center
     const randomWord = STARTING_IDIOMS[Math.floor(Math.random() * STARTING_IDIOMS.length)];
     const centerRow = 7;
@@ -283,26 +364,31 @@ export default function Home() {
 
     setGrid(newGrid);
     setCellOwners(newCellOwners);
-    
-    // Setup initial nutrients
-    const initialNutrients = spawnNutrients(5, newGrid, [], activeMode === "challenge");
-    setNutrients(initialNutrients);
-
-    setLastTimeBonus(0);
-    setTimerBonusTrigger(0);
 
     if (activeMode === "free") {
       setTimeLeft(90);
       setScores({ p1: 100, p2: 0 });
+      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      setNutrients(initialNutrients);
       addLog(`【自由練習模式】已開始！首詞為「${randomWord}」，無時間限制。`, "system");
     } else if (activeMode === "challenge") {
       setTimeLeft(120);
       setScores({ p1: 100, p2: 0 });
+      const initialNutrients = spawnNutrients(5, newGrid, [], true);
+      setNutrients(initialNutrients);
       addLog(`【積分挑戰模式】已開始！首詞為「${randomWord}」，限時 120 秒，吃掉 ⏰ 或正確輸入成語可延長時間。`, "system");
     } else if (activeMode === "battle") {
       setTimeLeft(60);
       setScores({ p1: 0, p2: 0 });
+      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      setNutrients(initialNutrients);
       addLog(`【雙人對抗生存模式】已開始！首詞為「${randomWord}」歸藍色阿米巴，目前輪到藍色阿米巴。雙方各有 5 條生命，每回合思考時間為 60 秒！`, "system");
+    } else if (activeMode === "dungeon") {
+      setTimeLeft(90);
+      setScores({ p1: 0, p2: 0 });
+      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      setNutrients(initialNutrients);
+      addLog(`【地牢冒險模式】已開始！第一章：字林初探。首詞為「${randomWord}」。`, "system");
     }
 
     setHistory([
@@ -322,12 +408,14 @@ export default function Home() {
   };
 
   const handleGiveUp = () => {
-    if (window.confirm(gameMode === "battle" ? "確定向對手認輸嗎？" : "確定要放棄此局並結算分數嗎？")) {
-      if (gameMode === "battle") {
+    if (gameMode === "battle") {
+      if (window.confirm("確定向對手認輸嗎？")) {
         setWinnerOverride(currentPlayer === 1 ? 2 : 1);
         setGameState("gameover");
         addLog(`【系統】玩家 ${currentPlayer === 1 ? "一" : "二"} 選擇認輸！對手直接獲勝。`, "system");
-      } else {
+      }
+    } else {
+      if (window.confirm("確定要放棄此局並結算分數嗎？")) {
         setGameState("gameover");
         addLog("【系統】您已選擇放棄此局，進入分數結算。", "system");
       }
@@ -337,18 +425,21 @@ export default function Home() {
   const handleGetHint = () => {
     if (gameState !== "playing") return;
 
-    if (gameMode === "battle") {
+    if (gameMode === "dungeon") {
+      if (hintsCount <= 0) {
+        addLog("提示次數已耗盡，無法獲取提示！", "error");
+        return;
+      }
+    } else if (gameMode === "battle") {
       const currentLives = currentPlayer === 1 ? lives.p1 : lives.p2;
       if (currentLives <= 0) {
         addLog("生命值已耗盡，無法獲取提示！", "error");
         return;
       }
-      if (!window.confirm("使用提示將扣除 1 點生命值！確定要使用嗎？")) {
-        return;
-      }
-    } else {
-      const currentScore = currentPlayer === 1 ? scores.p1 : scores.p2;
-      if (gameMode !== "free" && currentScore < 50) {
+      if (!window.confirm("使用提示將扣除 1 點生命值！確定要使用嗎？")) return;
+    } else if (gameMode === "challenge") {
+      const currentScore = scores.p1;
+      if (currentScore < 50) {
         addLog("積分不足 50 分，無法獲取提示！", "error");
         return;
       }
@@ -421,8 +512,9 @@ export default function Home() {
 
             let hasClash = false;
             for (let j = 0; j < coords.length; j++) {
+              const isRock = rockCells.has(`${coords[j].r},${coords[j].c}`);
               const existing = grid[coords[j].r][coords[j].c];
-              if (existing !== "" && existing !== word[j]) {
+              if (isRock || (existing !== "" && existing !== word[j])) {
                 hasClash = true;
                 break;
               }
@@ -434,8 +526,20 @@ export default function Home() {
             setSelectedCell({ row: startR, col: startC });
             setDirection(dir as "H" | "V");
 
-            // Deduct life / score
-            if (gameMode === "battle") {
+            // Deduct life / score / hint
+            if (gameMode === "dungeon") {
+              setHintsCount((prev) => prev - 1);
+              if (relics.includes("prepared")) {
+                setPreparedBonusActive(true);
+              }
+              addLog(
+                `【系統提示】使用提示！剩餘提示次數：${hintsCount - 1}/${maxHints}。建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                "system"
+              );
+              if (relics.includes("prepared")) {
+                addLog("【有備無患】已激活！下一個放置的成語對 BOSS 的傷害與得分將提升 50%。", "success");
+              }
+            } else if (gameMode === "battle") {
               setLives((prev) => ({
                 p1: currentPlayer === 1 ? prev.p1 - 1 : prev.p1,
                 p2: currentPlayer === 2 ? prev.p2 - 1 : prev.p2,
@@ -445,23 +549,17 @@ export default function Home() {
                 `【系統提示】玩家 ${currentPlayer === 1 ? "一" : "二"} 使用了提示，扣除 1 點生命值！建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
                 "system"
               );
+            } else if (gameMode === "challenge") {
+              setScores((prev) => ({ ...prev, p1: Math.max(0, prev.p1 - 50) }));
+              addLog(
+                `【系統提示】已扣除 50 積分！建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                "system"
+              );
             } else {
-              if (gameMode === "challenge") {
-                setScores((prev) => ({
-                  ...prev,
-                  p1: Math.max(0, prev.p1 - 50),
-                }));
-                addLog(
-                  `【系統提示】已扣除 50 積分！建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
-                  "system"
-                );
-              } else {
-                // Free mode: free hint!
-                addLog(
-                  `【系統提示】建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
-                  "system"
-                );
-              }
+              addLog(
+                `【系統提示】建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                "system"
+              );
             }
             hintFound = true;
             break;
@@ -537,27 +635,20 @@ export default function Home() {
 
   // --- Game Loop (Timer) Effect ---
   useEffect(() => {
-    if (gameState !== "playing") {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
+    if (timerRef.current) clearInterval(timerRef.current);
 
-    if (gameMode === "free") {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
+    if (gameState !== "playing") return;
+    if (gameMode === "free" || gameMode === "dungeon") return;
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           if (gameMode === "challenge") {
-            // End challenge mode
             setGameState("gameover");
             addLog("時間到！【積分挑戰】已結束，請在面板查看您的最終成績！", "system");
             if (timerRef.current) clearInterval(timerRef.current);
             return 0;
           } else if (gameMode === "battle") {
-            // Battle mode: turn timeout - lose a life!
             const nextP = currentPlayer === 1 ? 2 : 1;
             addLog(`玩家 ${currentPlayer === 1 ? "一" : "二"} 回合逾時！扣除 1 點生命值並更換回合。`, "error");
             setLives((prev) => ({
@@ -566,7 +657,7 @@ export default function Home() {
             }));
             triggerDamageEffect(currentPlayer);
             setCurrentPlayer(nextP);
-            return 60; // reset turn timer to 60s
+            return 60;
           }
         }
         return prev - 1;
@@ -582,11 +673,11 @@ export default function Home() {
   useEffect(() => {
     if (gameMode === "battle" && gameState === "playing") {
       if (lives.p1 <= 0) {
-        setWinnerOverride(2); // P2 wins
+        setWinnerOverride(2);
         setGameState("gameover");
         addLog("【系統】藍色阿米巴 P1 生命值歸零，粉色阿米巴 P2 獲得勝利！", "system");
       } else if (lives.p2 <= 0) {
-        setWinnerOverride(1); // P1 wins
+        setWinnerOverride(1);
         setGameState("gameover");
         addLog("【系統】粉色阿米巴 P2 生命值歸零，藍色阿米巴 P1 獲得勝利！", "system");
       }
@@ -637,10 +728,11 @@ export default function Home() {
         return { ...coord, char: trimmed[index] || "", inBounds: false, clash: false, overlap: false, slotIndex: index };
       }
 
+      const isRock = rockCells.has(`${coord.r},${coord.c}`);
       const existingChar = grid[coord.r][coord.c];
       const newChar = trimmed[index] || "";
-      const isClash = existingChar !== "" && existingChar !== newChar;
-      const isOverlap = existingChar !== "" && existingChar === newChar;
+      const isClash = isRock || (existingChar !== "" && existingChar !== newChar);
+      const isOverlap = !isRock && existingChar !== "" && existingChar === newChar;
 
       if (isClash) hasClash = true;
       if (isOverlap) hasOverlap = true;
@@ -717,6 +809,92 @@ export default function Home() {
 
   const selectedCellIdioms = getSelectedCellIdioms();
 
+  // --- Dungeon Error & HP Deduction Handler ---
+  const handleDungeonFailure = (message: string) => {
+    addLog(message, "error");
+    if (gameMode === "dungeon") {
+      setHp((prev) => {
+        const next = prev - 1;
+        if (next <= 0) {
+          setGameState("gameover");
+          addLog("💀 您的生命值已耗盡，地牢冒險失敗！", "error");
+        }
+        return next;
+      });
+      setScreenShake(true);
+      playExplosionSound();
+      setTimeout(() => setScreenShake(false), 800);
+    }
+  };
+
+  const handleBossDefeated = () => {
+    addLog("🎉🎉🎉 恭喜！您成功擊敗了第一章 BOSS【贅字史萊姆】！", "success");
+    setShowVictoryOverlay(true);
+    playExplosionSound();
+    
+    setTimeout(() => {
+      setShowVictoryOverlay(false);
+      const nextChapter = chapter + 1;
+      setChapter(nextChapter);
+      setChapterScore(0);
+      setRelicCheckpointsTriggered(new Set());
+      setBossActive(false);
+      setRockCells(new Set());
+      
+      // Auto-place next starter word
+      const randomWord = STARTING_IDIOMS[Math.floor(Math.random() * STARTING_IDIOMS.length)];
+      const centerRow = 7;
+      const centerCol = 5;
+      const newGrid = Array(15).fill(null).map(() => Array(15).fill(""));
+      const newCellOwners: Record<string, 1 | 2> = {};
+
+      for (let i = 0; i < randomWord.length; i++) {
+        newGrid[centerRow][centerCol + i] = randomWord[i];
+        newCellOwners[`${centerRow},${centerCol + i}`] = 1;
+      }
+      
+      setGrid(newGrid);
+      setCellOwners(newCellOwners);
+      setSelectedCell({ row: centerRow, col: centerCol });
+      setDirection("V");
+      
+      // Spawn nutrients
+      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      setNutrients(initialNutrients);
+      
+      if (relics.includes("radar")) {
+        setHintsCount(prev => Math.min(maxHints, prev + 1));
+        addLog("【突觸雷達】在章節通關時為您自動補充了 1 次提示！", "success");
+      }
+      
+      addLog(`【地牢冒險】已進入第 ${nextChapter} 章！首詞為「${randomWord}」。`, "system");
+    }, 3500);
+  };
+
+  const handleSelectRelic = (relicId: string) => {
+    if (relicId === "membrane") {
+      setMaxHp((prev) => {
+        const next = prev + 1;
+        setHp(next);
+        return next;
+      });
+      addLog("獲得遺物【再生細胞膜】：最大生命值 +1，且生命值已補滿！", "success");
+    } else if (relicId === "radar") {
+      setHintsCount((prev) => prev + 2);
+      addLog("獲得遺物【突觸雷達】：獲得 2 次提示次數。此後每過一關額外補充 1 次提示！", "success");
+    } else if (relicId === "prepared") {
+      setMaxHints((prev) => prev + 2);
+      setHintsCount((prev) => prev + 2);
+      addLog("獲得遺物【有備無患】：提示上限 +2，且獲得 2 次提示。提示後下一個成語得分與對 BOSS 傷害提升 50%！", "success");
+    } else if (relicId === "color") {
+      addLog("獲得遺物【色彩斑斕】：成語中若包含顏色字，得分翻倍且回復 1 點生命值！", "success");
+    } else if (relicId === "autophagy") {
+      addLog("獲得遺物【細胞自噬】：達成 Combo 2x 或以上時，隨機淨化清除盤面上一個贅字格！", "success");
+    }
+    setRelics((prev) => [...prev, relicId]);
+    setRelicChoices(null);
+  };
+
   // --- Action: Place Idiom ---
   const handlePlaceIdiom = (wordToPlace?: string, customStart?: { row: number; col: number }) => {
     if (gameState !== "playing") return;
@@ -731,17 +909,17 @@ export default function Home() {
     }
 
     if (/[^\u4e00-\u9fa5]/.test(activeWord)) {
-      addLog("放置失敗：成語只能包含中文漢字！", "error");
+      handleDungeonFailure("放置失敗：成語只能包含中文漢字！");
       return;
     }
 
     if (activeWord.length !== 4 && activeWord.length !== 5) {
-      addLog("成語長度必須為 4 或 5 個字！", "error");
+      handleDungeonFailure("成語長度必須為 4 或 5 個字！");
       return;
     }
 
     if (!loadingDict && !idiomsWords.has(activeWord)) {
-      addLog(`放置失敗：「${activeWord}」非成語庫中之有效成語！`, "error");
+      handleDungeonFailure(`放置失敗：「${activeWord}」非成語庫中之有效成語！`);
       return;
     }
 
@@ -751,20 +929,26 @@ export default function Home() {
     // 1. Bounds Check
     const outOfBounds = coords.some((coord) => coord.r < 0 || coord.r >= 15 || coord.c < 0 || coord.c >= 15);
     if (outOfBounds) {
-      addLog(`放置失敗：位置超出 15x15 畫布邊界！`, "error");
+      handleDungeonFailure(`放置失敗：位置超出 15x15 畫布邊界！`);
       return;
     }
 
     // 2. Clash & Overlap Check
     const emptyBoard = isGridEmpty();
     let overlapsCount = 0;
-    let clashCell = null;
+    let clashCell: { r: number; c: number; existing: string; current: string } | null = null;
     let stolenCount = 0;
 
     for (let i = 0; i < coords.length; i++) {
       const { r, c } = coords[i];
       const existing = grid[r][c];
       const current = activeWord[i];
+      const isRock = rockCells.has(`${r},${c}`);
+
+      if (isRock) {
+        clashCell = { r, c, existing: "🧱", current };
+        break;
+      }
 
       if (existing !== "") {
         if (existing !== current) {
@@ -775,42 +959,61 @@ export default function Home() {
           // Steal mechanic check in Battle Mode
           if (gameMode === "battle") {
             const owner = cellOwners[`${r},${c}`];
-            if (owner && owner !== currentPlayer) {
-              stolenCount++;
-            }
+            if (owner && owner !== currentPlayer) stolenCount++;
           }
         }
       }
     }
 
     if (clashCell) {
-      addLog(
-        `放置失敗：格子 (${COL_LABELS[clashCell.c]}${clashCell.r + 1}) 字元衝突。既存 '${clashCell.existing}'，您欲填入 '${clashCell.current}'！`,
-        "error"
+      handleDungeonFailure(
+        `放置失敗：格子 (${COL_LABELS[clashCell.c]}${clashCell.r + 1}) 字元衝突。既存 '${clashCell.existing}'，您欲填入 '${clashCell.current}'！`
       );
       return;
     }
 
     // 3. Amoeba connection check
     if (!emptyBoard && overlapsCount === 0) {
-      addLog("放置失敗：阿米巴規則！新成語必須與畫布上既有的字「共用重疊」以向外延伸！", "error");
+      handleDungeonFailure("放置失敗：阿米巴規則！新成語必須與畫布上既有的字「共用重疊」以向外延伸！");
       return;
     }
 
     // --- Scoring & Combo Logic ---
     let comboMultiplier = 1;
-    let basePlacementScore = 100;
-    if (overlapsCount === 2) {
-      basePlacementScore = 250;
-      comboMultiplier = 2;
-    } else if (overlapsCount >= 3) {
-      basePlacementScore = 500;
-      comboMultiplier = 3;
-    }
+    let roundScore = 100;
 
-    let roundScore = basePlacementScore;
-    let stealPoints = stolenCount * 150;
-    roundScore += stealPoints;
+    if (gameMode === "dungeon") {
+      const basePlacementScore = 40;
+      comboMultiplier = Math.max(1, overlapsCount);
+      roundScore = basePlacementScore * comboMultiplier;
+
+      // Relic: 有備無患 (prepared)
+      if (preparedBonusActive) {
+        roundScore = Math.floor(roundScore * 1.5);
+      }
+
+      // Relic: 色彩斑斕 (color)
+      const COLOR_CHARS = new Set(["紅", "白", "藍", "黃", "黑", "青", "綠", "紫"]);
+      const hasColor = activeWord.split("").some((char) => COLOR_CHARS.has(char));
+      if (hasColor && relics.includes("color")) {
+        roundScore *= 2;
+        setHp((prev) => Math.min(maxHp, prev + 1));
+      }
+    } else {
+      let basePlacementScore = 100;
+      if (overlapsCount === 2) {
+        basePlacementScore = 250;
+        comboMultiplier = 2;
+      } else if (overlapsCount >= 3) {
+        basePlacementScore = 500;
+        comboMultiplier = 3;
+      }
+      roundScore = basePlacementScore;
+      // Battle mode: steal bonus
+      if (gameMode === "battle") {
+        roundScore += stolenCount * 150;
+      }
+    }
 
     // Check Nutrient consumption
     let timeBonus = 0;
@@ -840,6 +1043,76 @@ export default function Home() {
       newCellOwners[`${coord.r},${coord.c}`] = currentPlayer;
     });
 
+    // Boss damage calculation
+    let dealDamageToBoss = false;
+    let bossDamage = 0;
+    if (gameMode === "dungeon" && bossActive) {
+      const bossCells = [
+        { r: 6, c: 6 }, { r: 6, c: 7 }, { r: 6, c: 8 },
+        { r: 7, c: 6 }, { r: 7, c: 7 }, { r: 7, c: 8 },
+        { r: 8, c: 6 }, { r: 8, c: 7 }, { r: 8, c: 8 }
+      ];
+      const isAdjacent = coords.some((coord) => 
+        bossCells.some((bc) => Math.abs(coord.r - bc.r) <= 1 && Math.abs(coord.c - bc.c) <= 1)
+      );
+      if (isAdjacent) {
+        dealDamageToBoss = true;
+        bossDamage = roundScore;
+      }
+    }
+
+    const nextBossHp = bossActive && dealDamageToBoss ? Math.max(0, bossHp - bossDamage) : bossHp;
+
+    if (bossActive && dealDamageToBoss) {
+      setBossHp(nextBossHp);
+      // Trigger short screen shake for Boss hit
+      setScreenShake(true);
+      setTimeout(() => setScreenShake(false), 300);
+    }
+
+    // Boss 1 Action (贅字史萊姆 counter-attack)
+    if (gameMode === "dungeon" && bossActive && nextBossHp > 0) {
+      const emptyCells: {r: number, c: number}[] = [];
+      for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+          const isBoss = (r >= 6 && r <= 8) && (c >= 6 && c <= 8);
+          if (!isBoss && newGrid[r][c] === "") {
+            emptyCells.push({ r, c });
+          }
+        }
+      }
+      if (emptyCells.length > 0) {
+        const target = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        const particle = ["的", "了", "麼", "啊"][Math.floor(Math.random() * 4)];
+        newGrid[target.r][target.c] = particle;
+        setRockCells((prev) => {
+          const next = new Set(prev);
+          next.add(`${target.r},${target.c}`);
+          return next;
+        });
+        addLog(`【贅字史萊姆】向外噴灑了贅字「${particle}」於 ${COL_LABELS[target.c]}${target.r + 1}，該格被封鎖！`, "error");
+      }
+    }
+
+    // Relic: 細胞自噬 (autophagy)
+    if (gameMode === "dungeon" && overlapsCount >= 2 && relics.includes("autophagy") && rockCells.size > 0) {
+      const arr = Array.from(rockCells);
+      const randomCell = arr[Math.floor(Math.random() * arr.length)];
+      const [r, c] = randomCell.split(",").map(Number);
+      newGrid[r][c] = ""; // clear from grid
+      setRockCells((prev) => {
+        const next = new Set(prev);
+        next.delete(randomCell);
+        return next;
+      });
+      addLog(`【細胞自噬】隨機消滅並淨化了位於 ${COL_LABELS[c]}${r + 1} 的贅字格！`, "success");
+    }
+
+    // Reset 有備無患 (prepared) bonus status
+    if (preparedBonusActive) {
+      setPreparedBonusActive(false);
+    }
+
     // Apply scores
     if (gameMode === "battle") {
       setScores((prev) => ({
@@ -854,17 +1127,12 @@ export default function Home() {
       }));
     }
 
-    // Apply time bonus (Challenge mode)
-    if (gameMode === "challenge") {
-      const totalTimeBonus = 20 + timeBonus;
-      setTimeLeft((prev) => prev + totalTimeBonus);
-      setLastTimeBonus(totalTimeBonus);
-      setTimerBonusTrigger((prev) => prev + 1);
+    // Update dungeon chapter progress score
+    const oldChapterScore = chapterScore;
+    const newChapterScore = oldChapterScore + roundScore;
+    if (gameMode === "dungeon") {
+      setChapterScore(newChapterScore);
     }
-
-    // Spawn replacement nutrients
-    const nextNutrients = spawnNutrients(5, newGrid, remainingNutrients, gameMode === "challenge");
-    setNutrients(nextNutrients);
 
     // Save history
     setHistory((prev) => [
@@ -881,16 +1149,28 @@ export default function Home() {
       ...prev,
     ]);
 
+    // Apply challenge time bonus
+    if (gameMode === "challenge") {
+      const totalTimeBonus = 20 + timeBonus;
+      setTimeLeft((prev) => prev + totalTimeBonus);
+      setLastTimeBonus(totalTimeBonus);
+      setTimerBonusTrigger((prev) => prev + 1);
+    }
+
     // Log the event
     const coordsStr = `${COL_LABELS[col]}${row + 1}`;
     const comboStr = overlapsCount > 1 ? ` (Combo x${comboMultiplier}!)` : "";
     const nutrientStr = pointNutrientCount > 0 ? ` 吸收養分點(+${pointNutrientCount * 200})` : "";
     const totalTimeBonus = gameMode === "challenge" ? 20 + timeBonus : timeBonus;
     const timeStr = totalTimeBonus > 0 ? ` 延長時間(+${totalTimeBonus}s)` : "";
-    const stealStr = stealPoints > 0 ? ` 掠奪對手領地(+${stealPoints})` : "";
-
-    const logText = `【${currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴"}】成功放置「${activeWord}」於 ${coordsStr}${comboStr}${nutrientStr}${timeStr}${stealStr}，獲得 ${roundScore} 分！`;
+    const stealStr = (gameMode === "battle" && stolenCount > 0) ? ` 掠奪對手領地(+${stolenCount * 150})` : "";
+    const playerLabel = gameMode === "battle" ? (currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴") : "玩家";
+    const logText = `【${playerLabel}】成功放置「${activeWord}」於 ${coordsStr}${comboStr}${nutrientStr}${timeStr}${stealStr}，獲得 ${roundScore} 分！`;
     addLog(logText, currentPlayer === 1 ? "p1" : "p2");
+
+    if (bossActive && dealDamageToBoss) {
+      addLog(`💥 【擊中 BOSS】對【贅字史萊姆】造成了 ${bossDamage} 點傷害！(剩餘 HP: ${nextBossHp})`, "success");
+    }
 
     // Update board state
     setGrid(newGrid);
@@ -902,10 +1182,61 @@ export default function Home() {
     setLastPlacedCells(placedKeys);
     setTimeout(() => setLastPlacedCells(new Set()), 500);
 
-    // Switch turns / resets
+    // Spawn replacement nutrients
+    const nextNutrients = spawnNutrients(5, newGrid, remainingNutrients, gameMode === "challenge");
+    setNutrients(nextNutrients);
+
+    // Switch turns in Battle Mode
     if (gameMode === "battle") {
       setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
-      setTimeLeft(60); // reset turn time
+      setTimeLeft(60);
+    }
+
+    // Check Boss victory or progress checkpoints
+    if (gameMode === "dungeon" && bossActive && nextBossHp <= 0) {
+      handleBossDefeated();
+    } else if (gameMode === "dungeon" && !bossActive && oldChapterScore < 300 && newChapterScore >= 300) {
+      // Trigger BOSS 1
+      setBossActive(true);
+      setBossHp(300);
+      setBossMaxHp(300);
+      newGrid[6][6] = "贅";
+      newGrid[6][7] = "字";
+      newGrid[6][8] = "史";
+      newGrid[7][6] = "萊";
+      newGrid[7][7] = "姆";
+      newGrid[7][8] = "👾";
+      newGrid[8][6] = "阿";
+      newGrid[8][7] = "米";
+      newGrid[8][8] = "巴";
+      for (let r = 6; r <= 8; r++) {
+        for (let c = 6; c <= 8; c++) {
+          delete newCellOwners[`${r},${c}`];
+        }
+      }
+      setGrid(newGrid);
+      setCellOwners(newCellOwners);
+      addLog("⚠️ 【警告】第一章 BOSS【贅字史萊姆】降臨！牠吞噬了網格中央 3x3 空間，成為新的阿米巴核心！", "error");
+    } else if (gameMode === "dungeon" && !bossActive && newChapterScore < 300) {
+      // Check Relic selection checkpoints: 100 and 200
+      let triggeredCheckpoint = -1;
+      if (oldChapterScore < 100 && newChapterScore >= 100 && !relicCheckpointsTriggered.has(100)) {
+        triggeredCheckpoint = 100;
+      } else if (oldChapterScore < 200 && newChapterScore >= 200 && !relicCheckpointsTriggered.has(200)) {
+        triggeredCheckpoint = 200;
+      }
+      
+      if (triggeredCheckpoint !== -1) {
+        const availableRelics = ["membrane", "radar", "prepared", "color", "autophagy"];
+        const shuffled = [...availableRelics].sort(() => Math.random() - 0.5);
+        setRelicChoices(shuffled.slice(0, 3));
+        setRelicCheckpointsTriggered((prev) => {
+          const next = new Set(prev);
+          next.add(triggeredCheckpoint);
+          return next;
+        });
+        addLog("🎁 得分里程碑達成！抽取一個突變遺物增強您的屬性。", "system");
+      }
     }
 
     if (!wordToPlace) {
@@ -917,18 +1248,14 @@ export default function Home() {
   // --- Action: Pass Turn (Battle Mode only) ---
   const handlePassTurn = () => {
     if (gameMode !== "battle" || gameState !== "playing") return;
-
     if (!window.confirm("確定要棄權嗎？棄權將扣除 1 點生命值！")) return;
-
     const nextP = currentPlayer === 1 ? 2 : 1;
     addLog(`【${currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴"}】選擇棄權，扣除 1 點生命值並換人。`, "error");
-    
     setLives((prev) => ({
       p1: currentPlayer === 1 ? prev.p1 - 1 : prev.p1,
       p2: currentPlayer === 2 ? prev.p2 - 1 : prev.p2,
     }));
     triggerDamageEffect(currentPlayer);
-
     setCurrentPlayer(nextP);
     setTimeLeft(60);
   };
@@ -968,7 +1295,7 @@ export default function Home() {
     setDirection("V");
 
     // Spawn new nutrients around the grid
-    const nextNutrients = spawnNutrients(5, newGrid, nutrients.filter(n => !getCoordinatesForWord(centerRow, centerCol, randomWord.length, "H").some(c => c.r === n.r && c.c === n.c)), gameMode === "challenge");
+    const nextNutrients = spawnNutrients(5, newGrid, nutrients.filter(n => !getCoordinatesForWord(centerRow, centerCol, randomWord.length, "H").some(c => c.r === n.r && c.c === n.c)), false);
     setNutrients(nextNutrients);
 
     addLog(`成功放置首詞「${randomWord}」於網格中心 G8，獲得 100 分！`, "success");
@@ -1057,10 +1384,48 @@ export default function Home() {
 
             {/* Mode Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card 1: Free Mode */}
+              {/* Card 1: Dungeon Mode */}
+              <div 
+                onClick={() => handleStartGame("dungeon")}
+                className="md:col-span-2 bg-panel-bg backdrop-blur-md border border-purple-500/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_35px_rgba(139,92,246,0.2)] hover:border-purple-500/50 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+              >
+                {/* Neon glow effect on hover */}
+                <div className="absolute -inset-px bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl opacity-0 group-hover:opacity-10 transition duration-500 blur-xl"></div>
+                
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-4xl">👾</span>
+                    <span className="text-[10px] font-bold font-mono tracking-widest text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      ROGUE-DUNGEON
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-black text-text-primary mb-1">地牢冒險模式</h3>
+                  <p className="text-xs text-text-secondary font-mono mb-4">// 融合 Roguelike 與生存機制的成語地牢冒險 //</p>
+                  
+                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2.5 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">生命值限制</strong>：起始擁有 3 點 HP，打錯字、非成語或違反接龍規則扣 1 點生命值，歸零則冒險失敗！</li>
+                    <li><strong className="text-text-primary">突變遺物抽取</strong>：在單章節累計得分達到 <strong>100 分</strong> 與 <strong>200 分</strong> 時，可獲得強力的突變遺物三選一加成。</li>
+                    <li><strong className="text-text-primary">首領戰 - 贅字史萊姆</strong>：達到 300 分目標時，BOSS 贅字史萊姆降臨，牠會不斷釋放贅字格封鎖網格。放置相鄰成語對牠造成等同該步得分的傷害！</li>
+                    <li><strong className="text-text-primary">繼承與晉級</strong>：擊敗 BOSS 後將保留剩餘生命、提示數與已獲得遺物，並重置網格晉級下一個章節。</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartGame("dungeon");
+                  }}
+                  className="w-full py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(139,92,246,0.3)] flex items-center justify-center gap-1.5"
+                >
+                  <span>開啟地牢冒險</span>
+                  <span>➜</span>
+                </button>
+              </div>
+
+              {/* Card 2: Free Mode */}
               <div 
                 onClick={() => handleStartGame("free")}
-                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] dark:hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:border-emerald-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+                className="md:col-span-1 bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] dark:hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:border-emerald-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
@@ -1073,10 +1438,9 @@ export default function Home() {
                   <p className="text-xs text-text-secondary font-mono mb-4">// 無壓力成語接龍練習 //</p>
                   
                   <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">無時間限制</strong>：可以從容不迫地思考，無須緊繃，適合放鬆遊玩。</li>
-                    <li><strong className="text-text-primary">免費提示</strong>：卡關時點擊提示不扣除任何分數，自動為您填字。</li>
+                    <li><strong className="text-text-primary">無時間與生命限制</strong>：無須承受生命值扣減的壓力，可以從容不迫地思考排列。</li>
+                    <li><strong className="text-text-primary">免費提示</strong>：卡關時點擊提示不消耗任何次數或分數，自動填寫。</li>
                     <li><strong className="text-text-primary">積分養分點</strong>：地圖隨機生成積分點（♦），覆蓋可獲 <strong>+200分</strong>。</li>
-                    <li>可以用來熟悉網格座標和接龍排列，練習成語庫。</li>
                   </ul>
                 </div>
                 
@@ -1085,80 +1449,9 @@ export default function Home() {
                     e.stopPropagation();
                     handleStartGame("free");
                   }}
-                  className="w-full py-3.5 rounded-xl font-black text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.25)] flex items-center justify-center gap-1"
+                  className="w-full py-3.5 rounded-xl font-black text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.25)] flex items-center justify-center gap-1.5"
                 >
                   <span>開始自由練習</span>
-                  <span>➜</span>
-                </button>
-              </div>
-
-              {/* Card 2: Challenge Mode */}
-              <div 
-                onClick={() => handleStartGame("challenge")}
-                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(245,158,11,0.15)] dark:hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:border-amber-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-4xl">⚡</span>
-                    <span className="text-[10px] font-bold font-mono tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      CHALLENGE
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-black text-text-primary mb-1">積分挑戰模式</h3>
-                  <p className="text-xs text-text-secondary font-mono mb-4">// 限時 120s 的高分大作戰 //</p>
-                  
-                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">限時 120 秒</strong>：爭分奪秒！倒數結束將自動結算最終成績。</li>
-                    <li><strong className="text-text-primary">成語加時</strong>：每成功放置一個正確成語可增加 <strong>+20秒</strong>！</li>
-                    <li><strong className="text-text-primary">時間能量點</strong>：吃掉地圖上的時鐘養分（⏰）可額外增加 <strong>+10秒</strong>！</li>
-                    <li><strong className="text-text-primary">提示扣除分數</strong>：使用求助提示每次將扣除 <strong>50分</strong>。</li>
-                    <li><strong className="text-text-primary">Combo 翻倍</strong>：重疊多個漢字將獲得 Combo 連鎖加分！</li>
-                  </ul>
-                </div>
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartGame("challenge");
-                  }}
-                  className="w-full py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1"
-                >
-                  <span>挑戰高分極限</span>
-                  <span>➜</span>
-                </button>
-              </div>
-
-              {/* Card 3: Battle Mode */}
-              <div 
-                onClick={() => handleStartGame("battle")}
-                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(236,72,153,0.15)] dark:hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] hover:border-pink-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-4xl">⚔️</span>
-                    <span className="text-[10px] font-bold font-mono tracking-widest text-pink-600 dark:text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20">
-                      LOCAL PVP
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-black text-text-primary mb-1">雙人對決模式</h3>
-                  <p className="text-xs text-text-secondary font-mono mb-4">// 同屏 1v1 生存與領地爭奪對抗 //</p>
-                  
-                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">回合制生存戰</strong>：藍阿米巴 (P1) vs 粉阿米巴 (P2) 回合制生存對抗。</li>
-                    <li><strong className="text-text-primary">60 秒限時與生命</strong>：每人 5 條生命，回合超時或棄權扣 1 條命並換人。</li>
-                    <li><strong className="text-text-primary">提示扣除生命</strong>：使用求助提示每次將扣除 <strong>1 點生命值</strong>。</li>
-                    <li><strong className="text-text-primary">領地掠奪與 0 分起始</strong>：雙方起始分數為 0，重疊對手文字可獲得 <strong>+150 掠奪分/格</strong>。</li>
-                  </ul>
-                </div>
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartGame("battle");
-                  }}
-                  className="w-full py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(236,72,153,0.25)] flex items-center justify-center gap-1"
-                >
-                  <span>開啟對決大戰</span>
                   <span>➜</span>
                 </button>
               </div>
@@ -1242,6 +1535,16 @@ export default function Home() {
                       自由模式
                     </button>
                     <button
+                      onClick={() => handleSwitchMode("dungeon")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        gameMode === "dungeon"
+                          ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      地牢冒險
+                    </button>
+                    <button
                       onClick={() => handleSwitchMode("challenge")}
                       className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                         gameMode === "challenge"
@@ -1306,108 +1609,115 @@ export default function Home() {
                 </div>
 
                 {/* Scoreboards depending on mode */}
-                {gameMode !== "battle" ? (
-                  /* Solo Scoreboard */
+                {gameMode === "dungeon" ? (
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {/* Chapter & Progress */}
+                    <div className="bg-input-bg border border-purple-500/30 rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[110px] shadow-[0_0_12px_rgba(168,85,247,0.05)]">
+                      <span className="text-[9px] text-purple-500 font-bold uppercase tracking-widest font-mono">Chapter {chapter}</span>
+                      <span className="text-sm font-black text-purple-600 dark:text-purple-300 font-mono">
+                        {chapterScore} / 300 pt
+                      </span>
+                      {/* Mini progress bar */}
+                      <div className="w-full bg-input-border/30 h-1 rounded-full mt-1 overflow-hidden">
+                        <div className="bg-purple-500 h-full rounded-full transition-all duration-350" style={{ width: `${Math.min(100, (chapterScore / 300) * 100)}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Dungeon HP Hearts */}
+                    <div className="bg-input-bg border border-red-500/30 rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[95px] shadow-[0_0_12px_rgba(239,68,68,0.05)]">
+                      <span className="text-[9px] text-red-500 font-bold uppercase tracking-widest font-mono">HP</span>
+                      <div className="flex gap-0.5 mt-0.5 text-xs select-none">
+                        {Array.from({ length: maxHp }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`transition-all duration-350 ${
+                              i < hp
+                                ? "text-red-500 scale-100 filter drop-shadow-[0_0_2px_rgba(239,68,68,0.7)]"
+                                : "text-gray-400 opacity-20 scale-90"
+                            }`}
+                          >
+                            ❤️
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Dungeon Hints Count */}
+                    <div className="bg-input-bg border border-cyan-500/30 rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[95px] shadow-[0_0_12px_rgba(6,182,212,0.05)]">
+                      <span className="text-[9px] text-cyan-500 font-bold uppercase tracking-widest font-mono">HINTS</span>
+                      <div className="flex gap-0.5 mt-0.5 text-xs select-none">
+                        {Array.from({ length: maxHints }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`transition-all duration-350 ${
+                              i < hintsCount
+                                ? "text-amber-500 scale-100 filter drop-shadow-[0_0_2px_rgba(245,158,11,0.7)]"
+                                : "text-gray-400 opacity-20 scale-90"
+                            }`}
+                          >
+                            💡
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Score */}
+                    <div className="bg-input-bg border border-cyan-500/30 rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[95px] shadow-[0_0_12px_rgba(6,182,212,0.05)]">
+                      <span className="text-[9px] text-cyan-500 font-bold uppercase tracking-widest font-mono">TOTAL SCORE</span>
+                      <span className="text-xl font-mono font-black text-cyan-600 dark:text-cyan-300">
+                        {String(scores.p1).padStart(5, "0")}
+                      </span>
+                    </div>
+                  </div>
+                ) : gameMode === "battle" ? (
+                  /* Battle Mode Scoreboard */
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* P1 */}
+                    <div className={`bg-input-bg border rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[95px] transition-all duration-300 ${currentPlayer === 1 ? "border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)]" : "border-cyan-500/20"}`}>
+                      <span className="text-[9px] text-cyan-500 font-bold uppercase tracking-widest font-mono">🔵 P1 藍色</span>
+                      <div className="flex gap-px mt-0.5 select-none">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} className={`text-[10px] transition-all ${i < lives.p1 ? "text-red-500" : "text-gray-400/30"}`}>❤️</span>
+                        ))}
+                      </div>
+                      <span className="text-base font-mono font-black text-cyan-600 dark:text-cyan-300">{String(scores.p1).padStart(4, "0")}</span>
+                    </div>
+                    {/* Timer */}
+                    <div className="bg-input-bg border border-panel-border/30 rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[60px]">
+                      <span className="text-[9px] text-text-secondary font-bold uppercase tracking-widest font-mono">TIME</span>
+                      <span className={`text-lg font-mono font-black ${timeLeft <= 10 ? "text-red-500 animate-pulse" : "text-text-primary"}`}>{timeLeft}s</span>
+                    </div>
+                    {/* P2 */}
+                    <div className={`bg-input-bg border rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[95px] transition-all duration-300 ${currentPlayer === 2 ? "border-pink-400 shadow-[0_0_12px_rgba(236,72,153,0.3)]" : "border-pink-500/20"}`}>
+                      <span className="text-[9px] text-pink-500 font-bold uppercase tracking-widest font-mono">🩷 P2 粉色</span>
+                      <div className="flex gap-px mt-0.5 select-none">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} className={`text-[10px] transition-all ${i < lives.p2 ? "text-red-500" : "text-gray-400/30"}`}>❤️</span>
+                        ))}
+                      </div>
+                      <span className="text-base font-mono font-black text-pink-600 dark:text-pink-300">{String(scores.p2).padStart(4, "0")}</span>
+                    </div>
+                  </div>
+                ) : gameMode === "challenge" ? (
+                  /* Challenge Mode Scoreboard */
+                  <div className="flex items-center gap-4">
+                    <div className="bg-input-bg border border-amber-500/30 rounded-lg px-3 py-1.5 flex flex-col items-center min-w-[80px]">
+                      <span className="text-[9px] text-amber-500 font-bold uppercase tracking-widest font-mono">TIME</span>
+                      <span className={`text-xl font-mono font-black ${timeLeft <= 10 ? "text-red-500 animate-pulse" : "text-amber-500 dark:text-amber-300"}`}>{timeLeft}s</span>
+                    </div>
+                    <div className="bg-input-bg border border-cyan-500/30 rounded-lg px-4 py-1.5 flex flex-col items-center min-w-[90px]">
+                      <span className="text-[9px] text-cyan-500 font-bold uppercase tracking-widest font-mono">SCORE</span>
+                      <span className="text-2xl font-mono font-black text-cyan-600 dark:text-cyan-300">{String(scores.p1).padStart(5, "0")}</span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Free Play Scoreboard */
                   <div className="flex items-center gap-4">
                     <div className="bg-input-bg border border-cyan-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(6,182,212,0.05)] transition-all duration-300">
                       <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-bold uppercase tracking-widest font-mono">Score</span>
                       <span className="text-2xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.2)] dark:drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]">
                         {String(scores.p1).padStart(5, "0")}
                       </span>
-                    </div>
-                    {gameMode === "challenge" && (
-                      <div 
-                        key={`timer-box-${timerBonusTrigger}`}
-                        className={`bg-input-bg border border-emerald-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(16,185,129,0.05)] transition-all duration-300 relative ${
-                          timerBonusTrigger > 0 ? "animate-timer-bonus" : "animate-pulse"
-                        }`}
-                      >
-                        {timerBonusTrigger > 0 && (
-                          <span 
-                            key={`float-${timerBonusTrigger}`}
-                            className="absolute -top-7 text-xl font-mono font-black text-emerald-500 dark:text-emerald-400 animate-float-up pointer-events-none drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-                          >
-                            +{lastTimeBonus}s
-                          </span>
-                        )}
-                        <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest font-mono">Time Left</span>
-                        <span className={`text-2xl font-mono font-black ${
-                          timeLeft <= 15
-                            ? "text-red-500 dark:text-red-400 animate-pulse"
-                            : "text-emerald-600 dark:text-emerald-300"
-                        } drop-shadow-[0_0_6px_rgba(52,211,153,0.2)]`}>
-                          {timeLeft}s
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Two Player Battle Scoreboard */
-                  <div className="flex items-center gap-4">
-                    {/* P1 Scoreboard */}
-                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[110px] transition-all duration-300 ${
-                      damageFlash.p1
-                        ? "animate-damage-card border-red-500"
-                        : currentPlayer === 1 && gameState === "playing"
-                        ? "border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)] scale-105"
-                        : "border-cyan-500/20 opacity-60"
-                    }`}>
-                      <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-bold uppercase tracking-widest font-mono">P1 藍阿米巴</span>
-                      <span className="text-xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_4px_rgba(34,211,238,0.3)]">
-                        {String(scores.p1).padStart(5, "0")}
-                      </span>
-                      {/* P1 Lives */}
-                      <div className="flex gap-0.5 mt-1 select-none">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <span
-                            key={i}
-                            className={`text-[10px] transition-all duration-300 ${
-                              i < lives.p1
-                                ? "text-red-500 scale-100 filter drop-shadow-[0_0_2px_rgba(239,68,68,0.7)]"
-                                : "text-gray-400 opacity-20 scale-90"
-                            }`}
-                          >
-                            ❤️
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Turn countdown bar */}
-                    <div className="flex flex-col items-center min-w-[60px]">
-                      <span className="text-[9px] text-text-secondary font-bold uppercase tracking-widest font-mono">Turn Time</span>
-                      <span className={`text-lg font-mono font-bold ${timeLeft <= 10 ? "text-red-500 animate-pulse" : "text-text-primary"}`}>
-                        {timeLeft}s
-                      </span>
-                    </div>
-
-                    {/* P2 Scoreboard */}
-                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[110px] transition-all duration-300 ${
-                      damageFlash.p2
-                        ? "animate-damage-card border-red-500"
-                        : currentPlayer === 2 && gameState === "playing"
-                        ? "border-pink-400 shadow-[0_0_12px_rgba(244,63,94,0.3)] scale-105"
-                        : "border-pink-500/20 opacity-60"
-                    }`}>
-                      <span className="text-[9px] text-pink-600 dark:text-pink-400 font-bold uppercase tracking-widest font-mono">P2 粉阿米巴</span>
-                      <span className="text-xl font-mono font-black text-pink-600 dark:text-pink-300 drop-shadow-[0_0_4px_rgba(244,63,94,0.3)]">
-                        {String(scores.p2).padStart(5, "0")}
-                      </span>
-                      {/* P2 Lives */}
-                      <div className="flex gap-0.5 mt-1 select-none">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <span
-                            key={i}
-                            className={`text-[10px] transition-all duration-300 ${
-                              i < lives.p2
-                                ? "text-red-500 scale-100 filter drop-shadow-[0_0_2px_rgba(239,68,68,0.7)]"
-                                : "text-gray-400 opacity-20 scale-90"
-                            }`}
-                          >
-                            ❤️
-                          </span>
-                        ))}
-                      </div>
                     </div>
                   </div>
                 )}
@@ -1417,15 +1727,17 @@ export default function Home() {
               <div className="text-[11px] text-text-secondary font-mono flex items-center gap-1.5 px-2 bg-panel-bg/40 py-1.5 rounded border border-panel-border/30">
                 <span>// CURRENT_MODE:</span>
                 <span className="text-purple-600 dark:text-purple-400 font-bold uppercase">
-                  {gameMode === "free" ? "Free Play" : gameMode === "challenge" ? "Score Challenge" : "Two-Player Local Battle"}
+                  {gameMode === "free" ? "Free Play" : gameMode === "challenge" ? "Score Challenge" : gameMode === "battle" ? "Two-Player Battle" : "Dungeon Mode"}
                 </span>
                 <span>•</span>
                 <span>
                   {gameMode === "free"
                     ? "自由練習，可隨時放置且無時間限制。"
                     : gameMode === "challenge"
-                    ? "限時 120 秒爭取最高分，輸入正確成語可增加 20 秒，吃掉【⏰ 綠色時鐘】可額外延長 10 秒！"
-                    : "雙人生存對抗，雙方各有 5 條生命，限時 60 秒。超時、棄權或使用提示扣 1 條命，扣完者輸！"}
+                    ? "積分挑戰：限時 120 秒！每次正確放置成語可延長時間，吃掉 ⏰ 也可加時！"
+                    : gameMode === "battle"
+                    ? "雙人對決：藍/粉阿米巴輪流回合，超時或棄權扣生命，搶奪對手格子！生命歸零判輸！"
+                    : "地牢冒險：生命值歸零則冒險結束。首個目標分 300 點，召喚 BOSS 贅字史萊姆並擊敗以通關！"}
                 </span>
               </div>
             </header>
@@ -1439,36 +1751,46 @@ export default function Home() {
                 {gameState === "gameover" && (
                   <div className="absolute inset-0 bg-background/95 backdrop-blur-md rounded-2xl z-30 flex flex-col items-center justify-center p-6 border border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.15)] dark:shadow-[0_0_40px_rgba(239,68,68,0.3)] transition-all duration-300">
                     <h2 className="text-3xl font-black text-red-500 tracking-wider mb-2 animate-pulse drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
-                      GAME OVER
+                      {gameMode === "dungeon" && hp <= 0 ? "冒險失敗 DIED" : gameMode === "dungeon" ? "冒險結束 END" : gameMode === "challenge" ? "時間到 TIME'S UP" : gameMode === "battle" ? (winnerOverride === 1 ? "🔵 P1 獲勝！" : "🩷 P2 獲勝！") : "遊戲結束 GAME OVER"}
                     </h2>
                     <p className="text-xs text-text-secondary uppercase tracking-widest font-mono mb-6">
-                      {gameMode === "free" ? "// 您已選擇放棄此局 //" : gameMode === "challenge" ? "// 挑戰時間截止 //" : "// 生命值歸零、回合棄權或玩家認輸 //"}
+                      {gameMode === "free"
+                        ? "// 您已選擇放棄此局 //"
+                        : gameMode === "dungeon" && hp <= 0
+                        ? `// 地牢冒險失敗！已止步於第 ${chapter} 章 //`
+                        : gameMode === "dungeon"
+                        ? `// 地牢冒險結束！已止步於第 ${chapter} 章 //`
+                        : gameMode === "challenge"
+                        ? "// 挑戰時間截止 //"
+                        : "// 生命值歸零、回合棄權或玩家認輸 //"}
                     </p>
 
                     <div className="bg-input-bg border border-panel-border/40 rounded-xl p-6 flex flex-col items-center gap-4 min-w-[280px] mb-8 shadow-2xl transition-all duration-300">
-                      {gameMode !== "battle" ? (
+                      {gameMode === "battle" ? (
+                        <div className="flex gap-6">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs text-cyan-400">🔵 P1 藍色</span>
+                            <span className="text-2xl font-mono font-black text-cyan-600 dark:text-cyan-300">{scores.p1} 分</span>
+                            <span className="text-[10px] text-text-secondary">剩餘生命: {lives.p1}</span>
+                          </div>
+                          <div className="text-2xl font-black text-text-secondary">VS</div>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs text-pink-400">🩷 P2 粉色</span>
+                            <span className="text-2xl font-mono font-black text-pink-600 dark:text-pink-300">{scores.p2} 分</span>
+                            <span className="text-[10px] text-text-secondary">剩餘生命: {lives.p2}</span>
+                          </div>
+                        </div>
+                      ) : (
                         <>
                           <span className="text-xs text-text-secondary">最終獲得積分</span>
                           <span className="text-4xl font-mono font-black text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
                             {scores.p1} 分
                           </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-xs text-text-secondary">對決獲勝方</span>
-                          <span className={`text-2xl font-black text-center ${getWinnerInfo().style}`}>
-                            {getWinnerInfo().text}
-                          </span>
-                          <div className="grid grid-cols-2 gap-4 w-full border-t border-input-border pt-4 mt-2 text-center text-xs font-mono">
-                            <div>
-                              <div className="text-cyan-600 dark:text-cyan-400">藍阿米巴 P1</div>
-                              <div className="text-lg font-bold text-text-primary mt-1">{scores.p1}</div>
+                          {gameMode === "dungeon" && (
+                            <div className="text-[10px] text-text-secondary font-mono border-t border-input-border/30 pt-2 mt-1 w-full text-center">
+                              到達章節: 第 {chapter} 章
                             </div>
-                            <div>
-                              <div className="text-pink-600 dark:text-pink-400">粉阿米巴 P2</div>
-                              <div className="text-lg font-bold text-text-primary mt-1">{scores.p2}</div>
-                            </div>
-                          </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -1510,11 +1832,21 @@ export default function Home() {
                       <span className="inline-block w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-400 rounded-sm"></span>
                       <span>♦ 積分養分</span>
                     </div>
-                    {gameMode === "challenge" && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-block w-2.5 h-2.5 bg-amber-500/20 border border-amber-400 rounded-sm"></span>
-                        <span>⏰ 時間養分 (+10s)</span>
-                      </div>
+                    {gameMode === "dungeon" && (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-block w-2.5 h-2.5 bg-zinc-900/90 border border-red-900/40 rounded-sm shadow-inner text-center">
+                            <span className="text-[8px] text-red-500/70 block leading-none font-bold mt-0.5">的</span>
+                          </span>
+                          <span>贅字封鎖格</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-block w-2.5 h-2.5 bg-purple-950 border-2 border-purple-400 rounded-sm shadow-[0_0_6px_rgba(168,85,247,0.4)] text-center">
+                            <span className="text-[8px] text-purple-300 block leading-none font-bold mt-0.5">👾</span>
+                          </span>
+                          <span>BOSS 核心</span>
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -1528,6 +1860,28 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {/* Boss Health Bar Widget */}
+                {gameMode === "dungeon" && bossActive && (
+                  <div className="w-full max-w-xl mx-auto mb-4 bg-zinc-950/80 border border-red-500/30 rounded-2xl p-4 shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-pulse text-text-primary">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl animate-bounce">👾</span>
+                        <span className="text-sm font-black text-red-500 tracking-wider">第一章 BOSS：贅字史萊姆</span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-red-400">{bossHp} / {bossMaxHp} HP</span>
+                    </div>
+                    <div className="w-full h-3 bg-zinc-900 rounded-full overflow-hidden border border-red-500/20 shadow-inner">
+                      <div 
+                        className="h-full bg-gradient-to-r from-red-600 via-purple-600 to-pink-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] transition-all duration-300"
+                        style={{ width: `${Math.max(0, Math.min(100, (bossHp / bossMaxHp) * 100))}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[10px] text-red-400/80 text-center mt-1.5 font-medium select-none">
+                      ⚠️ 提示：在 BOSS 核心（中央 3x3 紫色區域）相鄰的格子放置成語即可對其造成傷害！
+                    </p>
+                  </div>
+                )}
 
                 {/* Scrollable grid wrapper */}
                 <div className="w-full overflow-x-auto pb-2 flex justify-start md:justify-center relative">
@@ -1598,22 +1952,21 @@ export default function Home() {
                               extraClass += " place-success";
                             }
 
-                            if (cellValue) {
-                              if (gameMode === "battle") {
-                                if (cellOwner === 1) {
-                                  cellBgClass = "bg-cell-bg-p1";
-                                  borderClass = "border-cell-border-p1";
-                                  textClass = "text-cell-text-p1 font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
-                                } else {
-                                  cellBgClass = "bg-cell-bg-p2";
-                                  borderClass = "border-cell-border-p2";
-                                  textClass = "text-cell-text-p2 font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
-                                }
-                              } else {
-                                cellBgClass = "bg-cell-bg-filled";
-                                borderClass = "border-cell-border-filled";
-                                textClass = "text-cell-text-filled font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
-                              }
+                            const isRock = rockCells.has(`${rIdx},${cIdx}`);
+                            const isBossCell = bossActive && (rIdx >= 6 && rIdx <= 8 && cIdx >= 6 && cIdx <= 8);
+
+                            if (isBossCell) {
+                              cellBgClass = "bg-purple-950/90 border-purple-500/80 shadow-[0_0_10px_rgba(168,85,247,0.4)]";
+                              borderClass = "border-purple-400 border-2";
+                              textClass = "text-purple-300 font-black animate-pulse drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]";
+                            } else if (isRock) {
+                              cellBgClass = "bg-zinc-900/90 border-red-950/60 shadow-inner";
+                              borderClass = "border-red-900/40";
+                              textClass = "text-red-500/70 font-black font-mono";
+                            } else if (cellValue) {
+                              cellBgClass = "bg-cell-bg-filled";
+                              borderClass = "border-cell-border-filled";
+                              textClass = "text-cell-text-filled font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
                             } else if (isPreviewCell) {
                               if (previewClash) {
                                 cellBgClass = "bg-red-500/10";
@@ -1763,13 +2116,6 @@ export default function Home() {
                   <h2 className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-purple-600 dark:from-cyan-400 dark:to-purple-400 flex items-center justify-between border-b border-input-border/30 pb-2 select-none">
                     <span className="flex items-center gap-2">
                       <span>🕹️ 遊戲操作控制台</span>
-                      {gameMode === "battle" && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                          currentPlayer === 1 ? "bg-cyan-500/20 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400" : "bg-pink-500/20 text-pink-700 dark:bg-pink-950 dark:text-pink-400"
-                        }`}>
-                          P{currentPlayer} 回合
-                        </span>
-                      )}
                     </span>
                   </h2>
 
@@ -1896,14 +2242,12 @@ export default function Home() {
                               ? "bg-input-bg border-input-border text-text-secondary/40 cursor-not-allowed"
                               : preview?.isValid === false
                               ? "bg-red-500/10 border-red-500/30 text-red-500 cursor-not-allowed"
-                              : gameMode === "battle"
-                              ? currentPlayer === 1
-                                ? "bg-cyan-500 hover:bg-cyan-400 text-black border-transparent shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-                                : "bg-pink-500 hover:bg-pink-400 text-black border-transparent shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                              : gameMode === "battle" && currentPlayer === 2
+                              ? "bg-gradient-to-r from-pink-600 to-rose-600 hover:opacity-90 text-white border-transparent shadow-[0_0_15px_rgba(236,72,153,0.3)]"
                               : "bg-btn-primary-bg hover:opacity-90 text-btn-primary-text border-transparent shadow-[0_0_15px_var(--glow-color)]"
                           }`}
                         >
-                          {preview?.isValid === false ? "無法放置" : "放置成語"}
+                          {preview?.isValid === false ? "無法放置" : gameMode === "battle" ? (currentPlayer === 1 ? "🔵 P1 放置" : "🩷 P2 放置") : "放置成語"}
                         </button>
 
                         {/* Hint Button */}
@@ -1912,29 +2256,29 @@ export default function Home() {
                           onClick={handleGetHint}
                           disabled={
                             loadingDict ||
-                            (gameMode === "battle"
-                              ? (currentPlayer === 1 ? lives.p1 : lives.p2) <= 0
-                              : gameMode !== "free" && (currentPlayer === 1 ? scores.p1 : scores.p2) < 50)
+                            (gameMode === "dungeon" ? hintsCount <= 0 :
+                             gameMode === "challenge" ? scores.p1 < 50 :
+                             gameMode === "battle" ? (currentPlayer === 1 ? lives.p1 <= 0 : lives.p2 <= 0) : false)
                           }
                           className="px-3 rounded-lg font-bold text-xs bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex flex-col justify-center items-center gap-0.5 shrink-0"
-                          title={gameMode === "battle" ? "獲取接龍提示，每次使用扣除 1 點生命值" : "獲取接龍提示，每次使用扣除 50 分"}
+                          title={gameMode === "dungeon" ? "獲取接龍提示，每次使用消耗 1 次提示次數" : gameMode === "battle" ? "獲取接龍提示，每次使用扣除 1 點生命值" : gameMode === "challenge" ? "獲取接龍提示，每次使用扣除 50 分" : "獲取接龍提示（免費）"}
                         >
                           <span className="text-[11px]">💡 提示</span>
                           <span className="scale-75 font-mono text-[9px] opacity-75 leading-none">
-                            {gameMode === "battle" ? "-1 Life" : gameMode === "free" ? "Free" : "-50pt"}
+                            {gameMode === "dungeon" ? `-1 Hint` : gameMode === "battle" ? "-1 Life" : gameMode === "challenge" ? "-50pt" : "Free"}
                           </span>
                         </button>
                       </div>
 
-                      {/* Battle Pass & Give Up buttons row */}
+                      {/* Give Up / Pass button row */}
                       <div className="flex gap-2 mt-1">
                         {gameMode === "battle" && gameState === "playing" && (
                           <button
                             type="button"
                             onClick={handlePassTurn}
-                            className="flex-1 py-1.5 rounded-lg font-bold text-[10px] bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
+                            className="flex-1 py-1.5 rounded-lg font-bold text-[10px] bg-input-bg border border-amber-500/20 text-amber-500 hover:bg-amber-500/10 active:scale-97 transition-all cursor-pointer text-center"
                           >
-                            Pass
+                            ⏭️ 棄權換人 (-1 Life)
                           </button>
                         )}
                         <button
@@ -1953,6 +2297,38 @@ export default function Home() {
                     </div>
                   </div>
                 </section>
+
+                {/* 🎒 遺物背包 (Relic Inventory) */}
+                {gameMode === "dungeon" && (
+                  <section className="bg-panel-bg backdrop-blur-md border border-purple-500/20 rounded-2xl p-5 shadow-[0_0_20px_rgba(168,85,247,0.05)] dark:shadow-[0_0_20px_rgba(168,85,247,0.15)] flex flex-col gap-3 transition-all duration-300 text-text-primary">
+                    <h3 className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 flex items-center gap-1.5 uppercase tracking-widest select-none">
+                      <span>🎒 突變遺物背包 ({relics.length})</span>
+                    </h3>
+                    {relics.length === 0 ? (
+                      <p className="text-[11px] text-text-secondary/50 italic select-none">// 尚未獲得任何遺物 //</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {relics.map((rId, idx) => {
+                          const info = RELIC_DETAILS[rId] || { title: "未知遺物", desc: "", icon: "❓" };
+                          return (
+                            <div 
+                              key={`${rId}-${idx}`} 
+                              title={`${info.title}：\n${info.desc}`}
+                              className="group relative flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/60 border border-purple-500/20 hover:border-purple-400 hover:bg-purple-950/30 transition-all cursor-help shadow-[0_2px_8px_rgba(0,0,0,0.3)] hover:scale-105"
+                            >
+                              <span className="text-xl filter drop-shadow-[0_0_4px_rgba(168,85,247,0.3)]">{info.icon}</span>
+                              {/* Custom Tooltip */}
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col w-48 p-2.5 rounded-lg bg-zinc-950/95 border border-purple-500/40 text-text-primary text-[10px] leading-relaxed shadow-2xl z-20 pointer-events-none select-none animate-fade-in font-medium">
+                                <span className="font-bold text-purple-300 text-xs mb-1 border-b border-purple-500/25 pb-0.5">{info.icon} {info.title}</span>
+                                <span>{info.desc}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )}
 
                 {/* Idiom Details Card (dynamic) */}
                 {selectedCellIdioms.length > 0 ? (
@@ -1976,14 +2352,8 @@ export default function Home() {
                               <h3 className="text-xl font-extrabold text-pink-600 dark:text-pink-400 tracking-wider drop-shadow-[0_0_6px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.3)]">
                                 {item.word}
                               </h3>
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                                item.player === 1 
-                                  ? "bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 dark:bg-cyan-950/80 dark:text-cyan-400 dark:border-cyan-500/20" 
-                                  : "bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20"
-                              }`}>
-                                {gameMode === "battle"
-                                  ? isPlayer1 ? "藍色阿米巴 Placed" : "粉色阿米巴 Placed"
-                                  : "玩家放置"}
+                              <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20">
+                                玩家放置
                               </span>
                             </div>
 
@@ -2107,23 +2477,11 @@ export default function Home() {
                       history.map((item, index) => (
                         <div
                           key={item.id}
-                          className={`flex justify-between items-center text-xs bg-input-bg/50 border rounded px-3 py-2 transition-all ${
-                            gameMode === "battle"
-                              ? item.player === 1
-                                ? "border-cyan-500/20 hover:border-cyan-500/40"
-                                : "border-pink-500/20 hover:border-pink-500/40"
-                              : "border-input-border hover:border-panel-border"
-                          }`}
+                          className="flex justify-between items-center text-xs bg-input-bg/50 border border-input-border hover:border-panel-border rounded px-3 py-2 transition-all"
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-text-secondary font-mono w-5">#{history.length - index}</span>
-                            <strong className={`tracking-wide text-sm font-bold ${
-                              gameMode === "battle"
-                                ? item.player === 1
-                                  ? "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.15)]"
-                                  : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
-                                : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
-                            }`}>{item.word}</strong>
+                            <strong className="tracking-wide text-sm font-bold text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]">{item.word}</strong>
                             {item.combo > 1 && (
                               <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[9px] font-bold font-mono border border-purple-200 dark:border-purple-500/20 animate-pulse">
                                 COMBO x{item.combo}
@@ -2184,8 +2542,8 @@ export default function Home() {
 
       {/* Rules Modal Overlay */}
       {showRulesModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300">
-          <div className="bg-panel-bg border border-panel-border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl relative custom-scrollbar animate-fade-in text-text-primary">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300 text-text-primary">
+          <div className="bg-panel-bg border border-panel-border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl relative custom-scrollbar animate-fade-in">
             <button
               onClick={() => setShowRulesModal(false)}
               className="absolute top-4 right-4 text-text-secondary hover:text-text-primary text-xl font-bold font-mono cursor-pointer"
@@ -2244,8 +2602,8 @@ export default function Home() {
               </div>
 
               {gameMode === "battle" && (
-                <div className="border-t border-panel-border/30 pt-3 mt-2">
-                  <h4 className="font-bold text-pink-500 text-base mb-1.5 flex items-center gap-1.5">
+                <div className="border-t border-panel-border/30 pt-3 mt-2 text-xs text-text-secondary leading-relaxed flex flex-col gap-2">
+                  <h4 className="font-bold text-pink-500 dark:text-pink-400 text-base mb-1.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
                     <span>5. 雙人對決生存規則</span>
                   </h4>
@@ -2253,6 +2611,40 @@ export default function Home() {
                     藍阿米巴 (P1) 與粉阿米巴 (P2) 回合制生存對抗，雙方起始分數為 0 分，每人各有 5 條生命，單回合限時 60 秒。
                     回合超時、主動棄權 (Pass) 將扣除 1 點生命值並換人，點擊提示也將扣除 1 點生命值。生命值最先歸零的人直接判輸！
                     重疊對手的文字會將該領地奪過來，並外加 <strong className="text-text-primary">+150 掠奪分/格</strong>。
+                  </p>
+                </div>
+              )}
+              {gameMode === "challenge" && (
+                <div className="border-t border-panel-border/30 pt-3 mt-2 text-xs text-text-secondary leading-relaxed flex flex-col gap-2">
+                  <h4 className="font-bold text-amber-500 dark:text-amber-400 text-base mb-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    <span>5. 積分挑戰模式規則</span>
+                  </h4>
+                  <p>
+                    ⏱️ <strong className="text-text-primary">限時挑戰</strong>：初始 120 秒倒數！時間歸零則遊戲結束。每次成功放置成語可自動延長 20 秒，吃到 ⏰ 時間養分額外延長 10 秒。
+                  </p>
+                  <p>
+                    💡 <strong className="text-text-primary">提示費用</strong>：使用提示將扣除 50 積分。積分不足 50 時無法使用提示。
+                  </p>
+                </div>
+              )}
+              {gameMode === "dungeon" && (
+                <div className="border-t border-panel-border/30 pt-3 mt-2 text-xs text-text-secondary leading-relaxed flex flex-col gap-2">
+                  <h4 className="font-bold text-purple-500 dark:text-purple-400 text-base mb-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                    <span>5. 地牢闖關模式規則</span>
+                  </h4>
+                  <p>
+                    ❤️ <strong className="text-text-primary">生命機制</strong>：初始擁有 3 點生命。打錯字、非成語或違反接龍規則扣除 1 點。歸零則冒險失敗。
+                  </p>
+                  <p>
+                    💡 <strong className="text-text-primary">提示限制</strong>：初始 3 次提示。使用提示消耗提示次數，次數為 0 時無法再使用。
+                  </p>
+                  <p>
+                    👹 <strong className="text-text-primary">贅字史萊姆 BOSS</strong>：每章得分達到 300 分時 BOSS 降臨！BOSS 會佔據中央 3x3 格子，且每回合會噴灑「贅字格」阻擋玩家。在 BOSS 相鄰的格子正確放置成語可對其造成傷害（等同於該成語的得分）。擊敗 BOSS 後，將清空盤面並晉級下一章。
+                  </p>
+                  <p>
+                    🏆 <strong className="text-text-primary">遺物系統</strong>：每章得分達 100 分與 200 分時，可觸發遺物三選一，獲得強大的被動增益！
                   </p>
                 </div>
               )}
@@ -2264,6 +2656,70 @@ export default function Home() {
               >
                 我知道了
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Relic Selection Modal */}
+      {relicChoices && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-panel-bg border-2 border-purple-500/50 rounded-3xl max-w-2xl w-full p-8 shadow-[0_0_50px_rgba(168,85,247,0.3)] relative text-text-primary overflow-hidden animate-fade-in">
+            {/* Ambient glowing backgrounds */}
+            <div className="absolute -top-10 -left-10 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="text-center mb-6">
+              <span className="text-[40px] animate-bounce inline-block">🎁</span>
+              <h2 className="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 mt-2">
+                突變遺物三選一 (MUTATION SELECT)
+              </h2>
+              <p className="text-xs text-text-secondary mt-1 font-mono uppercase tracking-widest text-purple-400/80">
+                Choose one relic to alter your amoeba's genome
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
+              {relicChoices.map((choice) => {
+                const info = RELIC_DETAILS[choice] || { title: "未知遺物", desc: "", icon: "❓" };
+                return (
+                  <button
+                    key={choice}
+                    onClick={() => handleSelectRelic(choice)}
+                    className="flex flex-col items-center text-center p-5 rounded-2xl bg-zinc-900/60 border border-purple-500/20 hover:border-purple-400 hover:bg-purple-950/20 hover:scale-105 active:scale-98 transition-all duration-300 group cursor-pointer relative shadow-[0_4px_15px_rgba(0,0,0,0.4)]"
+                  >
+                    {/* Glowing card border on hover */}
+                    <div className="absolute inset-0 rounded-2xl border border-cyan-500/0 group-hover:border-cyan-500/30 transition-all duration-300"></div>
+                    
+                    <span className="text-4xl mb-3 filter drop-shadow-[0_0_8px_rgba(168,85,247,0.4)] group-hover:scale-110 transition-all duration-300">{info.icon}</span>
+                    <h3 className="font-extrabold text-sm text-purple-300 group-hover:text-purple-200 tracking-wider mb-2">{info.title}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed font-medium mt-1">{info.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Victory Overlay */}
+      {showVictoryOverlay && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex flex-col items-center justify-center animate-fade-in pointer-events-none select-none text-text-primary">
+          <div className="text-center max-w-lg px-6 flex flex-col items-center gap-4">
+            {/* Animated crown icon or boss defeated text */}
+            <span className="text-7xl animate-bounce filter drop-shadow-[0_0_15px_rgba(234,179,8,0.6)]">🏆</span>
+            <h1 className="text-4xl md:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.3)] mt-2">
+              擊敗 BOSS！
+            </h1>
+            <p className="text-sm font-bold text-yellow-300 font-mono tracking-widest uppercase">
+              BOSS DEFEATED - CHAPTER CLEAR
+            </p>
+            <div className="h-0.5 w-40 bg-gradient-to-r from-transparent via-yellow-500 to-transparent my-2"></div>
+            <p className="text-xs text-text-secondary leading-relaxed font-semibold">
+              你成功淨化了阿米巴細胞盤面上的贅字史萊姆！正在重整結構，晉級至第 {chapter + 1} 章...
+            </p>
+            <div className="mt-4 flex items-center gap-2 bg-yellow-950/40 border border-yellow-500/20 px-4 py-2 rounded-xl text-yellow-500 font-mono text-xs">
+              <span className="animate-spin inline-block mr-1">🌀</span> CHAPTER {chapter} COMPLETED
             </div>
           </div>
         </div>
