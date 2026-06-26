@@ -77,6 +77,11 @@ export default function Home() {
   const [idiomsDetails, setIdiomsDetails] = useState<Record<string, any>>({});
   const [loadingDict, setLoadingDict] = useState<boolean>(true);
   const [winnerOverride, setWinnerOverride] = useState<1 | 2 | null>(null);
+  const [charMap, setCharMap] = useState<Record<string, string>>({});
+
+  const convertToTraditional = (str: string) => {
+    return str.split("").map((char) => charMap[char] || char).join("");
+  };
   
   // Battle Mode specific
   const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
@@ -87,6 +92,10 @@ export default function Home() {
 
   // React 19 Ref for timers
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- UI Optimization States ---
+  const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+  const [activeLogTab, setActiveLogTab] = useState<"history" | "system">("history");
 
   // --- Helper: Add Log ---
   const addLog = (text: string, type: "success" | "error" | "info" | "p1" | "p2" | "system" = "info") => {
@@ -408,6 +417,19 @@ export default function Home() {
       .catch((err) => {
         console.error("Failed to load idioms details:", err);
       });
+
+    // Load character mapping for simplified-to-traditional conversion
+    fetch(`${basePath}/simplified_to_traditional.json`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load character mapping");
+        return res.json();
+      })
+      .then((map) => {
+        setCharMap(map);
+      })
+      .catch((err) => {
+        console.error("Failed to load character mapping:", err);
+      });
   }, []);
 
   // --- Game Loop (Timer) Effect ---
@@ -481,7 +503,8 @@ export default function Home() {
   // --- Preview Logic ---
   const getPreviewState = () => {
     if (!selectedCell || !inputWord || gameState !== "playing") return null;
-    const trimmed = inputWord.trim();
+    const trimmedRaw = inputWord.trim();
+    const trimmed = convertToTraditional(trimmedRaw);
     if (trimmed.length === 0) return null;
 
     const hasNonChinese = /[^\u4e00-\u9fa5]/.test(trimmed);
@@ -538,6 +561,26 @@ export default function Home() {
     };
   };
 
+  // --- Keyboard Event Handler for Input ---
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Only place if valid
+      const curPreview = getPreviewState();
+      if (selectedCell && inputWord && curPreview?.isValid) {
+        handlePlaceIdiom();
+      }
+    } else if (e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      setDirection((prev) => (prev === "H" ? "V" : "H"));
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      setDirection((prev) => (prev === "H" ? "V" : "H"));
+    }
+  };
+
   const preview = getPreviewState();
 
   // Find idioms in history that cover the selected cell
@@ -562,7 +605,8 @@ export default function Home() {
   const handlePlaceIdiom = (wordToPlace?: string, customStart?: { row: number; col: number }) => {
     if (gameState !== "playing") return;
 
-    const activeWord = (wordToPlace || inputWord).trim();
+    const activeWordRaw = (wordToPlace || inputWord).trim();
+    const activeWord = convertToTraditional(activeWordRaw);
     const activeCell = customStart || selectedCell;
 
     if (!activeCell) {
@@ -1104,6 +1148,24 @@ export default function Home() {
                       </>
                     )}
                   </button>
+
+                  {/* Rules Dialog Trigger */}
+                  <button
+                    onClick={() => setShowRulesModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-input-bg border border-panel-border/35 text-text-primary hover:scale-[1.03] active:scale-[0.97] transition-all shadow-[0_2px_10px_rgba(0,0,0,0.05)] cursor-pointer font-bold text-xs"
+                    title="查看核心玩法規則"
+                  >
+                    <span>❓ 玩法說明</span>
+                  </button>
+
+                  {/* Quick Reset Game */}
+                  <button
+                    onClick={handleClearBoard}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-input-bg border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/5 hover:border-red-500/30 hover:scale-[1.03] active:scale-[0.97] transition-all shadow-[0_2px_10px_rgba(0,0,0,0.05)] cursor-pointer font-bold text-xs"
+                    title="清除當前畫布並重設進度"
+                  >
+                    <span>🔄 重設遊戲</span>
+                  </button>
                 </div>
 
                 {/* Scoreboards depending on mode */}
@@ -1403,7 +1465,13 @@ export default function Home() {
                                 key={cIdx}
                                 type="button"
                                 disabled={gameState !== "playing"}
-                                onClick={() => setSelectedCell({ row: rIdx, col: cIdx })}
+                                onClick={() => {
+                                  if (selectedCell?.row === rIdx && selectedCell?.col === cIdx) {
+                                    setDirection((prev) => (prev === "H" ? "V" : "H"));
+                                  } else {
+                                    setSelectedCell({ row: rIdx, col: cIdx });
+                                  }
+                                }}
                                 style={{ animationDelay }}
                                 className={`w-7 h-7 sm:w-10 sm:h-10 rounded flex items-center justify-center text-xs sm:text-base border transition-all duration-150 active:scale-95 ${cellBgClass} ${borderClass} ${textClass}${extraClass} relative select-none cursor-pointer ${
                                   !cellValue && gameState === "playing" ? "hover:border-cyan-500/40 hover:bg-cyan-500/5" : ""
@@ -1491,396 +1559,447 @@ export default function Home() {
                     <span className="animate-pulse">👆 點擊網格選擇格子，設定成語放置起點</span>
                   )}
                 </div>
-              </section>
 
-              {/* RIGHT: Game Controls Panel (4 Cols) */}
-              <div className="lg:col-span-4 flex flex-col gap-6">
-                
-                {/* Control Panel Card */}
-                <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-4 transition-all duration-300">
-                  <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-purple-600 dark:from-cyan-400 dark:to-purple-400 flex items-center justify-between border-b border-input-border pb-2">
-                    <span className="flex items-center gap-2">
-                      <span>控制面板</span>
-                      {gameMode === "battle" && (
-                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${
-                          currentPlayer === 1 ? "bg-cyan-500/20 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400" : "bg-pink-500/20 text-pink-700 dark:bg-pink-950 dark:text-pink-400"
-                        }`}>
-                          P{currentPlayer} 回合
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-text-secondary font-mono">CONTROL PANEL</span>
-                  </h2>
+                {/* 🎯 Unified Gameplay Action Console */}
+                {gameState === "playing" && (
+                  <div className="w-full mt-4 bg-input-bg/30 border border-panel-border/20 rounded-xl p-4 flex flex-col gap-3 transition-all duration-300">
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                      {/* Left: Input with embedded indicator */}
+                      <div className="flex-1 flex flex-col gap-1.5">
+                        <div className="relative flex items-center w-full">
+                          <input
+                            type="text"
+                            maxLength={5}
+                            value={inputWord}
+                            disabled={gameState !== "playing"}
+                            onChange={(e) => setInputWord(e.target.value.trim())}
+                            onKeyDown={handleInputKeyDown}
+                            placeholder={selectedCell ? "請輸入 4-5 字成語..." : "← 請先選取網格起點"}
+                            className="w-full bg-input-bg border border-input-border hover:border-panel-border focus:border-cyan-500 dark:focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_8px_rgba(34,211,238,0.15)] rounded-lg pl-3.5 pr-20 py-2 text-sm text-text-primary transition-all font-medium placeholder-text-secondary/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                          />
+                          {/* Direction Indicator Switch embedded inside Input as a badge */}
+                          {selectedCell && (
+                            <button
+                              type="button"
+                              onClick={() => setDirection(prev => prev === "H" ? "V" : "H")}
+                              className={`absolute right-2 px-2 py-0.5 text-[9px] font-bold rounded border cursor-pointer select-none transition-all active:scale-95 ${
+                                direction === "H"
+                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                  : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                              }`}
+                              title="點擊切換方向 (或按空白鍵)"
+                            >
+                              {direction === "H" ? "▶ 橫向" : "▼ 縱向"}
+                            </button>
+                          )}
+                        </div>
 
-                  <div className="flex flex-col gap-3">
-                    
-                    {/* 4-Letter Word Input */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs text-text-secondary font-semibold flex justify-between">
-                        <span>輸入 4-5 字成語</span>
-                        {selectedCell && (
-                          <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-bold">
-                            起點: {COL_LABELS[selectedCell.col]}{selectedCell.row + 1}
-                          </span>
+                        {/* Inline dynamically updated rule checking tooltip */}
+                        {preview && (
+                          <div className="flex items-center gap-1.5 px-1">
+                            <span className={`text-[10px] font-extrabold ${preview.isValid ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+                              {preview.isValid ? "✓ 擺放檢測合格" : "✗"}
+                            </span>
+                            <span className="text-[10px] text-text-secondary select-none">
+                              {!preview.isValid && (
+                                <>
+                                  {inputWord.trim().length !== 4 && inputWord.trim().length !== 5 && `字數須為 4-5 字 (當前 ${inputWord.trim().length} 字) • `}
+                                  {preview.hasNonChinese && "須為中文漢字 • "}
+                                  {!preview.inBounds && "超出網格邊界 • "}
+                                  {preview.hasClash && "字元衝突 • "}
+                                  {!preview.isGridEmpty && !preview.hasOverlap && "須與現存阿米巴重疊 • "}
+                                  {!loadingDict && !preview.isDictValid && `「${inputWord.trim()}」非有效成語 • `}
+                                  {loadingDict && "成語庫載入中... • "}
+                                </>
+                              )}
+                              {preview.isValid && "按 Enter 鍵或放置按鈕寫入網格"}
+                            </span>
+                          </div>
                         )}
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={5}
-                        value={inputWord}
-                        disabled={gameState !== "playing"}
-                        onChange={(e) => setInputWord(e.target.value.trim())}
-                        placeholder="請輸入四字成語..."
-                        className="bg-input-bg border border-input-border hover:border-panel-border focus:border-cyan-500 dark:focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_8px_rgba(34,211,238,0.15)] rounded-lg px-3.5 py-2 text-sm text-text-primary transition-all font-medium placeholder-text-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                    </div>
-
-                    {/* Direction Switch */}
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-xs text-text-secondary font-semibold">排版排列方向</span>
-                      <div className="grid grid-cols-2 gap-2 bg-input-bg/50 p-1 rounded-lg border border-input-border">
-                        <button
-                          type="button"
-                          onClick={() => setDirection("H")}
-                          disabled={gameState !== "playing"}
-                          className={`py-1.5 text-xs font-bold rounded transition-all cursor-pointer ${
-                            direction === "H"
-                              ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35"
-                              : "text-text-secondary hover:text-text-primary"
-                          }`}
-                        >
-                          橫向排列 (H)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDirection("V")}
-                          disabled={gameState !== "playing"}
-                          className={`py-1.5 text-xs font-bold rounded transition-all cursor-pointer ${
-                            direction === "V"
-                              ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35"
-                              : "text-text-secondary hover:text-text-primary"
-                          }`}
-                        >
-                          縱向排列 (V)
-                        </button>
                       </div>
-                    </div>
 
-                    {/* Action Submit Button */}
-                    <button
-                      type="button"
-                      onClick={() => handlePlaceIdiom()}
-                      disabled={!selectedCell || !inputWord || preview?.isValid === false || gameState !== "playing"}
-                      className={`py-2.5 rounded-lg font-bold text-sm transition-all duration-200 cursor-pointer active:scale-97 select-none border ${
-                        !selectedCell || !inputWord || gameState !== "playing"
-                          ? "bg-input-bg border-input-border text-text-secondary/40 cursor-not-allowed"
-                          : preview?.isValid === false
-                          ? "bg-red-500/10 border-red-500/30 text-red-500 cursor-not-allowed"
-                          : gameMode === "battle"
-                          ? currentPlayer === 1
-                            ? "bg-cyan-500 hover:bg-cyan-400 text-black border-transparent shadow-[0_0_15px_rgba(6,182,212,0.3)] font-extrabold"
-                            : "bg-pink-500 hover:bg-pink-400 text-black border-transparent shadow-[0_0_15px_rgba(244,63,94,0.3)] font-extrabold"
-                          : "bg-btn-primary-bg hover:opacity-90 text-btn-primary-text border-transparent shadow-[0_0_15px_var(--glow-color)] font-extrabold"
-                      }`}
-                    >
-                      {preview?.isValid === false ? "規則限制無法放置" : "放置成語"}
-                    </button>
+                      {/* Right: Place Button and Utility Buttons */}
+                      <div className="flex items-stretch gap-2 shrink-0">
+                        {/* Place Button */}
+                        <button
+                          type="button"
+                          onClick={() => handlePlaceIdiom()}
+                          disabled={!selectedCell || !inputWord || preview?.isValid === false || gameState !== "playing"}
+                          className={`px-5 py-2.5 rounded-lg font-extrabold text-xs transition-all duration-200 cursor-pointer active:scale-97 select-none border min-w-[90px] ${
+                            !selectedCell || !inputWord || gameState !== "playing"
+                              ? "bg-input-bg border-input-border text-text-secondary/40 cursor-not-allowed"
+                              : preview?.isValid === false
+                              ? "bg-red-500/10 border-red-500/30 text-red-500 cursor-not-allowed"
+                              : gameMode === "battle"
+                              ? currentPlayer === 1
+                                ? "bg-cyan-500 hover:bg-cyan-400 text-black border-transparent shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                                : "bg-pink-500 hover:bg-pink-400 text-black border-transparent shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                              : "bg-btn-primary-bg hover:opacity-90 text-btn-primary-text border-transparent shadow-[0_0_15px_var(--glow-color)]"
+                          }`}
+                        >
+                          {preview?.isValid === false ? "無法放置" : "放置成語"}
+                        </button>
 
-                    {/* Pass Turn Button (Battle Mode Only) */}
-                    {gameMode === "battle" && gameState === "playing" && (
-                      <button
-                        type="button"
-                        onClick={handlePassTurn}
-                        className="py-1.5 rounded-lg font-semibold text-xs bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
-                      >
-                        棄權 / 換下一位 (Pass)
-                      </button>
-                    )}
-
-                    {/* Hint & Give Up Buttons */}
-                    {gameState === "playing" && (
-                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {/* Hint Button */}
                         <button
                           type="button"
                           onClick={handleGetHint}
                           disabled={loadingDict || (gameMode !== "free" && (currentPlayer === 1 ? scores.p1 : scores.p2) < 50)}
-                          className="py-1.5 rounded-lg font-semibold text-[11px] bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                          className="px-3 py-2.5 rounded-lg font-bold text-[11px] bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
                           title="獲取一個接龍字詞提示，每次使用扣除 50 分"
                         >
-                          <span>💡 求助提示</span>
+                          <span>💡 提示</span>
                           <span className="scale-90 font-mono text-[9px] opacity-75">-50pt</span>
                         </button>
+
+                        {/* Pass Turn Button (Battle Mode Only) */}
+                        {gameMode === "battle" && gameState === "playing" && (
+                          <button
+                            type="button"
+                            onClick={handlePassTurn}
+                            className="px-3.5 py-2.5 rounded-lg font-bold text-[11px] bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
+                          >
+                            Pass
+                          </button>
+                        )}
+                        
+                        {/* Surrender Button */}
                         <button
                           type="button"
                           onClick={handleGiveUp}
-                          className="py-1.5 rounded-lg font-semibold text-[11px] bg-input-bg border border-red-500/20 text-red-500 hover:bg-red-500/10 active:scale-97 transition-all cursor-pointer flex items-center justify-center gap-1"
+                          className="px-3 py-2.5 rounded-lg font-bold text-[11px] bg-input-bg border border-red-500/20 text-red-500 hover:bg-red-500/10 active:scale-97 transition-all cursor-pointer flex items-center justify-center"
+                          title={gameMode === "battle" ? "認輸" : "放棄此局"}
                         >
-                          <span>🏳️ {gameMode === "battle" ? "認輸" : "放棄此局"}</span>
+                          <span>🏳️ {gameMode === "battle" ? "認輸" : "投降"}</span>
                         </button>
                       </div>
-                    )}
-                  </div>
-                </section>
-
-                {/* Real-time Rule Check Alert Box */}
-                {preview && (
-                  <div
-                    className={`p-3 rounded-lg border text-xs leading-relaxed flex flex-col gap-1 transition-all ${
-                      preview.isValid
-                        ? "bg-green-500/10 dark:bg-green-950/20 border-green-500/20 dark:border-green-800/40 text-green-700 dark:text-green-400"
-                        : "bg-red-500/10 dark:bg-red-950/20 border-red-500/20 dark:border-red-800/40 text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    <span className="font-bold font-mono">
-                      {preview.isValid ? "✓ 擺放檢測合格" : "✗ 擺放檢測不符"}
-                    </span>
-                    {inputWord.trim().length !== 4 && inputWord.trim().length !== 5 && (
-                      <span>・字數必須為 4 或 5 個字（目前為 {inputWord.trim().length} 字）。</span>
-                    )}
-                    {preview.hasNonChinese && <span>・成語必須全部為中文漢字。</span>}
-                    {!preview.inBounds && <span>・部分字元會超出網格邊界。</span>}
-                    {preview.hasClash && <span>・與網格現存的字元發生衝突。</span>}
-                    {!preview.isGridEmpty && !preview.hasOverlap && (
-                      <span>・必須與現存字元重疊（阿米巴規則）。</span>
-                    )}
-                    {!loadingDict && !preview.isDictValid && (
-                      <span>・「{inputWord.trim()}」非成語庫中之有效成語。</span>
-                    )}
-                    {loadingDict && (
-                      <span className="text-yellow-600 dark:text-yellow-500 animate-pulse">・成語庫載入中，載入完成後將啟用嚴格驗證。</span>
-                    )}
-                    {preview.isValid && (
-                      <span>・按一下放置按鈕將單詞寫入網格。</span>
+                    </div>
+                    {/* Visual Tip about shortcuts */}
+                    {selectedCell && (
+                      <div className="text-[10px] text-text-secondary/50 font-mono text-center -mt-1 select-none">
+                        快捷提示：點擊已選格子或按 <kbd className="bg-input-bg/60 border border-input-border/60 px-1 py-0.5 rounded text-[8px]">Space</kbd> 切換方向，輸入框按 <kbd className="bg-input-bg/60 border border-input-border/60 px-1 py-0.5 rounded text-[8px]">Enter</kbd> 放置。
+                      </div>
                     )}
                   </div>
                 )}
+              </section>
 
-              {/* Idiom Details Card (dynamic) */}
-              {selectedCellIdioms.length > 0 && (
-                <section className="bg-panel-bg backdrop-blur-md border border-cyan-500/30 rounded-2xl p-5 shadow-[0_0_25px_rgba(6,182,212,0.06)] dark:shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col gap-4 transition-all duration-300">
-                  <h2 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 flex items-center justify-between border-b border-input-border pb-2">
-                    <span className="flex items-center gap-2">
-                      <span>🔍 成語詳細解析</span>
-                    </span>
-                    <span className="text-[10px] text-text-secondary font-mono">IDIOM DETAILS</span>
-                  </h2>
+              {/* RIGHT: Game Info & Helpers (4 Cols) */}
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                
+                {/* Idiom Details Card (dynamic) */}
+                {selectedCellIdioms.length > 0 ? (
+                  <section className="bg-panel-bg backdrop-blur-md border border-cyan-500/30 rounded-2xl p-5 shadow-[0_0_25px_rgba(6,182,212,0.06)] dark:shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col gap-4 transition-all duration-300">
+                    <h2 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 flex items-center justify-between border-b border-input-border pb-2">
+                      <span className="flex items-center gap-2">
+                        <span>🔍 成語詳細解析</span>
+                      </span>
+                      <span className="text-[10px] text-text-secondary font-mono">IDIOM DETAILS</span>
+                    </h2>
 
-                  <div className="flex flex-col gap-4 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
-                    {selectedCellIdioms.map((item) => {
-                      const details = idiomsDetails[item.word];
-                      const isPlayer1 = item.player === 1;
-                      
-                      return (
-                        <div key={item.id} className="border-b border-input-border pb-4 last:border-0 last:pb-0 flex flex-col gap-2">
-                          {/* Word and player badge */}
-                          <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-extrabold text-pink-600 dark:text-pink-400 tracking-wider drop-shadow-[0_0_6px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.3)]">
-                              {item.word}
-                            </h3>
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                              item.player === 1 
-                                ? "bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 dark:bg-cyan-950/80 dark:text-cyan-400 dark:border-cyan-500/20" 
-                                : "bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20"
-                            }`}>
-                              {gameMode === "battle"
-                                ? isPlayer1 ? "藍色阿米巴 Placed" : "粉色阿米巴 Placed"
-                                : "玩家放置"}
-                            </span>
-                          </div>
-
-                          {/* Pinyin */}
-                          {details ? (
-                            <div className="text-xs font-mono text-text-secondary font-semibold bg-input-bg px-2 py-1 rounded w-fit border border-input-border">
-                              {details.pinyin || "拼音未收錄"}
+                    <div className="flex flex-col gap-4 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+                      {selectedCellIdioms.map((item) => {
+                        const details = idiomsDetails[item.word];
+                        const isPlayer1 = item.player === 1;
+                        
+                        return (
+                          <div key={item.id} className="border-b border-input-border pb-4 last:border-0 last:pb-0 flex flex-col gap-2">
+                            {/* Word and player badge */}
+                            <div className="flex justify-between items-center">
+                              <h3 className="text-xl font-extrabold text-pink-600 dark:text-pink-400 tracking-wider drop-shadow-[0_0_6px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.3)]">
+                                {item.word}
+                              </h3>
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                                item.player === 1 
+                                  ? "bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 dark:bg-cyan-950/80 dark:text-cyan-400 dark:border-cyan-500/20" 
+                                  : "bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20"
+                              }`}>
+                                {gameMode === "battle"
+                                  ? isPlayer1 ? "藍色阿米巴 Placed" : "粉色阿米巴 Placed"
+                                  : "玩家放置"}
+                              </span>
                             </div>
-                          ) : (
-                            <div className="text-xs font-mono text-text-secondary/60 italic">
-                              拼音載入中...
-                            </div>
-                          )}
 
-                          {/* Explanation */}
-                          <div className="flex flex-col gap-1 mt-1">
-                            <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">釋義 Explanation</span>
-                            <p className="text-xs text-text-primary leading-relaxed font-medium bg-input-bg/40 p-2 rounded border border-input-border/60">
-                              {details ? details.explanation || "釋義未收錄" : "詳細釋義載入中..."}
-                            </p>
-                          </div>
+                            {/* Pinyin */}
+                            {details ? (
+                              <div className="text-xs font-mono text-text-secondary font-semibold bg-input-bg px-2 py-1 rounded w-fit border border-input-border">
+                                {details.pinyin || "拼音未收錄"}
+                              </div>
+                            ) : (
+                              <div className="text-xs font-mono text-text-secondary/60 italic">
+                                拼音載入中...
+                              </div>
+                            )}
 
-                          {/* Derivation / Origin */}
-                          {details && details.derivation && (
+                            {/* Explanation */}
                             <div className="flex flex-col gap-1 mt-1">
-                              <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">典故 Origin</span>
-                              <p className="text-[11px] text-text-secondary leading-relaxed bg-input-bg/20 p-2 rounded border border-input-border/30">
-                                {details.derivation}
+                              <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">釋義 Explanation</span>
+                              <p className="text-xs text-text-primary leading-relaxed font-medium bg-input-bg/40 p-2 rounded border border-input-border/60">
+                                {details ? details.explanation || "釋義未收錄" : "詳細釋義載入中..."}
                               </p>
                             </div>
-                          )}
 
-                          {/* Score and Placement Details */}
-                          <div className="flex justify-between items-center text-[10px] text-text-secondary font-mono mt-1 bg-input-bg/30 px-2 py-1 rounded">
-                            <span>獲得分數: <strong className="text-cyan-600 dark:text-cyan-400">+{item.score}分</strong></span>
-                            <span>擺放方向: {item.direction === "H" ? "橫向" : "縱向"}</span>
+                            {/* Derivation / Origin */}
+                            {details && details.derivation && (
+                              <div className="flex flex-col gap-1 mt-1">
+                                <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">典故 Origin</span>
+                                <p className="text-[11px] text-text-secondary leading-relaxed bg-input-bg/20 p-2 rounded border border-input-border/30">
+                                  {details.derivation}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Score and Placement Details */}
+                            <div className="flex justify-between items-center text-[10px] text-text-secondary font-mono mt-1 bg-input-bg/30 px-2 py-1 rounded">
+                              <span>獲得分數: <strong className="text-cyan-600 dark:text-cyan-400">+{item.score}分</strong></span>
+                              <span>擺放方向: {item.direction === "H" ? "橫向" : "縱向"}</span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : (
+                  /* Elegant Inspector Placeholder Card */
+                  <section className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.04)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.3)] flex flex-col items-center justify-center text-center p-6 min-h-[140px] transition-all duration-300 select-none">
+                    <span className="text-3xl mb-2.5">🔍</span>
+                    <h3 className="text-sm font-bold text-text-primary mb-1">成語字典解析</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed max-w-[220px]">
+                      點擊網格中已擺放的成語字元，即可在此處查看拼音、釋義與典故。
+                    </p>
+                  </section>
+                )}
+
+                {/* Presets and Helpers (Collapsible) */}
+                <details className="group bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.05)] transition-all duration-300 cursor-pointer overflow-hidden">
+                  <summary className="flex items-center justify-between font-bold text-xs text-text-primary uppercase tracking-widest font-mono select-none outline-none">
+                    <span>💡 測試輔助成語庫</span>
+                    <span className="text-[10px] text-text-secondary transition-transform group-open:rotate-180 font-sans">▼</span>
+                  </summary>
+                  <div className="mt-3 border-t border-input-border/30 pt-3 flex flex-col gap-2 cursor-default" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-[11px] text-text-secondary leading-normal">
+                      點擊下方成語，可將其快速填入主操作欄中：
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {PRESET_IDIOMS.map((idiom) => (
+                        <button
+                          key={idiom}
+                          disabled={gameState !== "playing"}
+                          onClick={() => setInputWord(idiom)}
+                          className="px-2.5 py-1 rounded bg-input-bg hover:bg-btn-primary-bg/10 border border-input-border hover:border-btn-primary-bg/35 text-xs text-text-primary transition-all font-mono disabled:opacity-50 cursor-pointer active:scale-95"
+                        >
+                          {idiom}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </section>
-              )}
-
-              {/* Gameplay instructions card */}
-              <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 transition-all duration-300">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest font-mono border-b border-input-border pb-1.5 flex justify-between items-center">
-                  <span>遊戲玩法說明</span>
-                  <span className="text-[9px] text-text-secondary">HOW TO PLAY</span>
-                </h3>
-                <ul className="text-[11px] text-text-secondary leading-relaxed list-disc list-inside flex flex-col gap-1.5">
-                  <li><strong>起點格</strong>：為成語<strong>第一個字</strong>的位置。</li>
-                  <li>
-                    <strong>阿米巴擴充</strong>：新成語必須與已有成語相交重疊。
-                    <span className="text-purple-600 dark:text-purple-400 font-semibold block mt-0.5 pl-4">
-                      串聯多重重疊，會觸發 Combo 翻倍計分！
-                    </span>
-                  </li>
-                  <li><strong>養分細胞點 (♦)</strong>：擺放成語若覆蓋地圖上的養分點，可額外獲得 <strong>+200分</strong>，挑戰模式更有 <strong>+10秒⏰</strong> 時鐘！</li>
-                  {gameMode === "battle" && (
-                    <li>
-                      <strong>雙人掠奪規則</strong>：玩家輪流在 30 秒內出牌。若與對手所屬的文字重疊，可掠奪該領地並獲得額外 <strong>+150 掠奪點</strong>！
-                    </li>
-                  )}
-                </ul>
-              </section>
-
-              {/* Presets and Helpers */}
-              <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 transition-all duration-300">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest font-mono border-b border-input-border pb-1.5 flex justify-between items-center">
-                  <span>測試預設字庫</span>
-                  <span className="text-[9px] text-text-secondary">PRESETS</span>
-                </h3>
-                <p className="text-[11px] text-text-secondary leading-normal">
-                  點擊下方成語，可快速填入上方文字欄：
-                </p>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {PRESET_IDIOMS.map((idiom) => (
-                    <button
-                      key={idiom}
-                      disabled={gameState !== "playing"}
-                      onClick={() => setInputWord(idiom)}
-                      className="px-2 py-1 rounded bg-input-bg hover:bg-btn-primary-bg/10 border border-input-border hover:border-btn-primary-bg/35 text-xs text-text-primary transition-all font-mono disabled:opacity-50 cursor-pointer"
-                    >
-                      {idiom}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              {/* Utility Reset Button */}
-              <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 transition-all duration-300">
-                <button
-                  onClick={handleClearBoard}
-                  className="w-full py-1.5 rounded bg-input-bg hover:bg-red-500/10 border border-input-border hover:border-red-500/30 text-xs text-text-secondary hover:text-red-500 dark:hover:text-red-400 transition-all font-semibold active:scale-98 cursor-pointer"
-                >
-                  重設當前遊戲進度 (Reset)
-                </button>
-              </section>
-            </div>
+                </details>
+              </div>
           </div>
 
-          {/* --- BOTTOM SECTION: System logs & History logs --- */}
-          <footer className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
-            
-            {/* History Panel */}
-            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-h-[220px] transition-all duration-300">
-              <h2 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 dark:from-pink-400 dark:to-purple-400 flex justify-between items-center border-b border-input-border pb-2">
-                <span>成語接龍履歷</span>
-                <span className="text-[10px] text-text-secondary font-mono">HISTORY LOG ({history.length})</span>
-              </h2>
-              <div className="flex-1 overflow-y-auto max-h-[200px] flex flex-col gap-2 pr-1 custom-scrollbar">
-                {history.length === 0 ? (
-                  <div className="text-xs text-text-secondary text-center py-10 font-mono">// NO HISTORY FOUND //</div>
-                ) : (
-                  history.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className={`flex justify-between items-center text-xs bg-input-bg/50 border rounded px-3 py-1.5 transition-all ${
-                        gameMode === "battle"
-                          ? item.player === 1
-                            ? "border-cyan-500/20 hover:border-cyan-500/40"
-                            : "border-pink-500/20 hover:border-pink-500/40"
-                          : "border-input-border hover:border-panel-border"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-text-secondary font-mono w-5">#{history.length - index}</span>
-                        <strong className={`tracking-wide text-sm font-bold ${
-                          gameMode === "battle"
-                            ? item.player === 1
-                              ? "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.15)]"
-                              : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
-                            : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
-                        }`}>{item.word}</strong>
-                        {item.combo > 1 && (
-                          <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[9px] font-bold font-mono border border-purple-200 dark:border-purple-500/20 animate-pulse">
-                            COMBO x{item.combo}
-                          </span>
-                        )}
-                      </div>
-                    <div className="flex items-center gap-4 text-[10px] text-text-secondary font-mono">
-                      <span>+{item.score}分</span>
-                      <span>起點: {COL_LABELS[item.col]}{item.row + 1} ({item.direction === "H" ? "橫向" : "縱向"})</span>
-                    </div>
+          {/* --- BOTTOM SECTION: Tabbed Game Logs & History --- */}
+          <footer className="w-full mt-4">
+            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-4 min-h-[260px] transition-all duration-300">
+              {/* Card Header with tabs */}
+              <div className="flex items-center justify-between border-b border-input-border pb-2.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveLogTab("history")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      activeLogTab === "history"
+                        ? "bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    📜 接龍歷史 ({history.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveLogTab("system")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      activeLogTab === "system"
+                        ? "bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-400"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    🖥️ 系統與對戰日誌 ({logs.length})
+                  </button>
+                </div>
+                <span className="text-[10px] text-text-secondary font-mono tracking-widest uppercase select-none">
+                  {activeLogTab === "history" ? "Gameplay History" : "System Debug Logs"}
+                </span>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto max-h-[190px] pr-1 custom-scrollbar">
+                {activeLogTab === "history" ? (
+                  /* History Log List */
+                  <div className="flex flex-col gap-2">
+                    {history.length === 0 ? (
+                      <div className="text-xs text-text-secondary text-center py-10 font-mono select-none">// NO HISTORY RECORDED //</div>
+                    ) : (
+                      history.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className={`flex justify-between items-center text-xs bg-input-bg/50 border rounded px-3 py-2 transition-all ${
+                            gameMode === "battle"
+                              ? item.player === 1
+                                ? "border-cyan-500/20 hover:border-cyan-500/40"
+                                : "border-pink-500/20 hover:border-pink-500/40"
+                              : "border-input-border hover:border-panel-border"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-text-secondary font-mono w-5">#{history.length - index}</span>
+                            <strong className={`tracking-wide text-sm font-bold ${
+                              gameMode === "battle"
+                                ? item.player === 1
+                                  ? "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.15)]"
+                                  : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
+                                : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
+                            }`}>{item.word}</strong>
+                            {item.combo > 1 && (
+                              <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[9px] font-bold font-mono border border-purple-200 dark:border-purple-500/20 animate-pulse">
+                                COMBO x{item.combo}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-[10px] text-text-secondary font-mono">
+                            <span>+{item.score}分</span>
+                            <span>起點: {COL_LABELS[item.col]}{item.row + 1} ({item.direction === "H" ? "橫向" : "縱向"})</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ))
-              )}
-            </div>
-          </section>
+                ) : (
+                  /* System Logs List */
+                  <div className="flex flex-col gap-1.5 font-mono text-[11px]">
+                    {logs.length === 0 ? (
+                      <div className="text-xs text-text-secondary text-center py-10 select-none">// NO LOGS RECORDED //</div>
+                    ) : (
+                      logs.map((log) => {
+                        let textColClass = "text-log-info-text";
+                        let bgColClass = "hover:bg-input-bg/40";
 
-          {/* System logs */}
-          <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-h-[220px] transition-all duration-300">
-            <h2 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 dark:from-cyan-400 dark:to-blue-400 flex justify-between items-center border-b border-input-border pb-2">
-              <span>系統與對戰日誌</span>
-              <span className="text-[10px] text-text-secondary font-mono">SYSTEM LOGS</span>
-            </h2>
-            <div className="flex-1 overflow-y-auto max-h-[200px] flex flex-col gap-1.5 pr-1 custom-scrollbar font-mono text-[11px]">
-              {logs.length === 0 ? (
-                <div className="text-xs text-text-secondary text-center py-10">// NO LOGS RECORDED //</div>
-              ) : (
-                logs.map((log) => {
-                  let textColClass = "text-log-info-text";
-                  let bgColClass = "hover:bg-input-bg/40";
+                        if (log.type === "success" || log.type === "system") {
+                          textColClass = "text-log-success-text";
+                          bgColClass = "hover:bg-green-500/5 dark:hover:bg-green-950/10";
+                        } else if (log.type === "error") {
+                          textColClass = "text-log-error-text";
+                          bgColClass = "hover:bg-red-500/5 dark:hover:bg-red-950/10";
+                        } else if (log.type === "p1") {
+                          textColClass = "text-log-p1-text font-semibold";
+                          bgColClass = "hover:bg-cyan-500/5 dark:hover:bg-cyan-950/10";
+                        } else if (log.type === "p2") {
+                          textColClass = "text-log-p2-text font-semibold";
+                          bgColClass = "hover:bg-pink-500/5 dark:hover:bg-pink-950/10";
+                        }
 
-                  if (log.type === "success" || log.type === "system") {
-                    textColClass = "text-log-success-text";
-                    bgColClass = "hover:bg-green-500/5 dark:hover:bg-green-950/10";
-                  } else if (log.type === "error") {
-                    textColClass = "text-log-error-text";
-                    bgColClass = "hover:bg-red-500/5 dark:hover:bg-red-950/10";
-                  } else if (log.type === "p1") {
-                    textColClass = "text-log-p1-text font-semibold";
-                    bgColClass = "hover:bg-cyan-500/5 dark:hover:bg-cyan-950/10";
-                  } else if (log.type === "p2") {
-                    textColClass = "text-log-p2-text font-semibold";
-                    bgColClass = "hover:bg-pink-500/5 dark:hover:bg-pink-950/10";
-                  }
-
-                  return (
-                    <div
-                      key={log.id}
-                      className={`flex items-start gap-2.5 leading-relaxed p-1 rounded transition-colors ${textColClass} ${bgColClass}`}
-                    >
-                      <span className="text-text-secondary/50 select-none">[{log.time}]</span>
-                      <span className="flex-1">{log.text}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-        </footer>
-      </>
-    )}
+                        return (
+                          <div
+                            key={log.id}
+                            className={`flex items-start gap-2.5 leading-relaxed p-1 rounded transition-colors ${textColClass} ${bgColClass}`}
+                          >
+                            <span className="text-text-secondary/50 select-none">[{log.time}]</span>
+                            <span className="flex-1">{log.text}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          </footer>
+        </>
+      )}
       </div>
+
+      {/* Rules Modal Overlay */}
+      {showRulesModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300">
+          <div className="bg-panel-bg border border-panel-border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl relative custom-scrollbar animate-fade-in text-text-primary">
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary text-xl font-bold font-mono cursor-pointer"
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 border-b border-input-border pb-3 mb-4 flex items-center gap-2">
+              <span>🎯 阿米巴成語接龍 - 核心玩法規則</span>
+            </h2>
+            <div className="space-y-4 text-sm text-text-secondary leading-relaxed font-medium">
+              <div>
+                <h4 className="font-bold text-text-primary text-base mb-1.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                  <span>1. 網格定位與方向</span>
+                </h4>
+                <p>
+                  點擊 15×15 棋盤網格中的任意格子，將其設置為您要放置的成語的<strong className="text-text-primary">第一個漢字</strong>（即起點）。
+                  當前排列方向會以圖示標明（橫向為 <span className="text-purple-600 dark:text-purple-400 font-bold">▶ 橫向</span>，縱向為 <span className="text-indigo-600 dark:text-indigo-400 font-bold">▼ 縱向</span>）。
+                </p>
+                <div className="mt-2 text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-500/5 px-2.5 py-1.5 rounded border border-cyan-500/10">
+                  💡 <strong>直覺小技巧</strong>：直接點擊已選中的同一格子，或者在輸入欄中按一下 <kbd className="px-1 border rounded bg-input-bg text-[10px]">Space</kbd> 鍵，即可快速切換排列方向！
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-text-primary text-base mb-1.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                  <span>2. 阿米巴相交接龍</span>
+                </h4>
+                <p>
+                  除首個單詞外，之後放置的每一個成語都必須與網格上已存在的漢字<strong className="text-text-primary">重疊（即共用至少一個字）</strong>。
+                  重疊的字必須完全相同，如果不匹配或未重疊，系統將提示不合規則。
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-text-primary text-base mb-1.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                  <span>3. 成語校驗與提示</span>
+                </h4>
+                <p>
+                  本遊戲包含<strong>嚴格的中文漢字成語庫驗證</strong>。每次輸入必須為有效成語且字數為 4 或 5 個字。
+                  如果卡關，可以點擊主控制台的 <span className="font-bold text-cyan-600 dark:text-cyan-400">💡 提示</span>，系統會檢索字典自動在您的起點格放置一條可行成語（每次使用扣除 50 分）。
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-text-primary text-base mb-1.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>4. Combo 連鎖加分</span>
+                </h4>
+                <p>
+                  如果擺放一個成語的同時，重疊了地圖上<strong className="text-text-primary">多個</strong>現有漢字，將觸發 Combo 連鎖！
+                  Combo 會成倍增加該成語獲得的基礎分（雙重重疊 2.5倍/2倍Combo，三重重疊 5倍/3倍Combo），是爭奪高分的關鍵。
+                </p>
+              </div>
+
+              {gameMode === "battle" && (
+                <div className="border-t border-panel-border/30 pt-3 mt-2">
+                  <h4 className="font-bold text-pink-500 text-base mb-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                    <span>5. 雙人對決特殊規則</span>
+                  </h4>
+                  <p>
+                    藍阿米巴 (P1) 與粉阿米巴 (P2) 回合制輪流出牌，單回合限時 30 秒。
+                    重疊對手的文字會將該領地奪過來，並外加 <strong className="text-text-primary">+150 掠奪分/格</strong>。連續兩次逾時或棄權將結束遊戲。
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="px-5 py-2 rounded-xl bg-btn-primary-bg hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all font-bold text-sm shadow-[0_4px_12px_var(--glow-color)]"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
