@@ -136,6 +136,7 @@ export default function Home() {
   } | null>(null);
   const [bombStepCounter, setBombStepCounter] = useState<number>(0);
   const [selectedRelicInfo, setSelectedRelicInfo] = useState<{ title: string; desc: string; icon: string } | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ word: string; hpLost: number } | null>(null);
 
   const convertToTraditional = (str: string) => {
     return str.split("").map((char) => charMap[char] || char).join("");
@@ -339,6 +340,7 @@ export default function Home() {
     setActiveBomb(null);
     setBombStepCounter(0);
     setSelectedRelicInfo(null);
+    setDuplicateWarning(null);
   };
 
   // Switch modes handler
@@ -393,6 +395,7 @@ export default function Home() {
     setActiveBomb(null);
     setBombStepCounter(0);
     setSelectedRelicInfo(null);
+    setDuplicateWarning(null);
 
     // Auto-place random starter word in center
     const randomWord = STARTING_IDIOMS[Math.floor(Math.random() * STARTING_IDIOMS.length)];
@@ -962,6 +965,7 @@ export default function Home() {
       setActiveBomb(null);
       setBombStepCounter(0);
       setSelectedRelicInfo(null);
+      setDuplicateWarning(null);
       
       setGrid(newGrid);
       setCellOwners(newCellOwners);
@@ -1123,15 +1127,27 @@ export default function Home() {
       return;
     }
 
-    // Duplicate placement check (max 2 times per game/chapter)
+    // Duplicate placement check (Dungeon Mode only)
     const currentChapter = gameMode === "dungeon" ? chapter : undefined;
     const sameWordPlacements = history.filter(
       (h) => h.word === activeWord && (gameMode !== "dungeon" || h.chapter === currentChapter)
     ).length;
 
-    if (sameWordPlacements >= 2) {
-      handleDungeonFailure(`放置失敗：「${activeWord}」在此局/此章節中已放置過 2 次！同一個成語最多只允許重複放置 2 次。`);
-      return;
+    if (gameMode === "dungeon" && sameWordPlacements >= 1) {
+      setHp((prev) => {
+        const next = Math.max(0, prev - 1);
+        if (next <= 0) {
+          setGameState("gameover");
+          addLog(`💀 輸入重複成語「${activeWord}」扣除生命值，生命值已耗盡，地牢冒險失敗！`, "error");
+        } else {
+          setDuplicateWarning({ word: activeWord, hpLost: 1 });
+          addLog(`⚠️ 【重複成語】放置了重複的成語「${activeWord}」，扣除 1 點生命值！`, "error");
+        }
+        return next;
+      });
+      setScreenShake(true);
+      playExplosionSound();
+      setTimeout(() => setScreenShake(false), 800);
     }
 
     const { row, col } = activeCell;
@@ -1258,11 +1274,11 @@ export default function Home() {
     let dealDamageToBoss = false;
     let bossDamage = 0;
     let defusedBombThisTurn = false;
+    let bossCells: { r: number, c: number }[] = [];
 
     if (gameMode === "dungeon" && bossActive) {
       const size = newGrid.length;
       const centerIdx = Math.floor(size / 2);
-      const bossCells: { r: number, c: number }[] = [];
       for (let r = centerIdx - 1; r <= centerIdx + 1; r++) {
         for (let c = centerIdx - 1; c <= centerIdx + 1; c++) {
           bossCells.push({ r, c });
@@ -1281,12 +1297,22 @@ export default function Home() {
       }
 
       if (!defusedBombThisTurn) {
-        const isAdjacent = coords.some((coord) => 
-          bossCells.some((bc) => Math.abs(coord.r - bc.r) <= 1 && Math.abs(coord.c - bc.c) <= 1)
-        );
-        if (isAdjacent) {
-          dealDamageToBoss = true;
-          bossDamage = roundScore;
+        if (chapter === 1) {
+          const contactCount = coords.filter((coord) => 
+            bossCells.some((bc) => Math.abs(coord.r - bc.r) <= 1 && Math.abs(coord.c - bc.c) <= 1)
+          ).length;
+          if (contactCount > 0) {
+            dealDamageToBoss = true;
+            bossDamage = roundScore * contactCount;
+          }
+        } else {
+          const isAdjacent = coords.some((coord) => 
+            bossCells.some((bc) => Math.abs(coord.r - bc.r) <= 1 && Math.abs(coord.c - bc.c) <= 1)
+          );
+          if (isAdjacent) {
+            dealDamageToBoss = true;
+            bossDamage = roundScore;
+          }
         }
       }
     }
@@ -1303,7 +1329,8 @@ export default function Home() {
       if (defusedBombThisTurn) {
         addLog(`💥 【時空解除】成功穿過炸彈格！對【${bossTitle}】造成了雙倍傷害 (${bossDamage} 點)！(剩餘 HP: ${nextBossHp})`, "success");
       } else {
-        addLog(`💥 【擊中 BOSS】對【${bossTitle}】造成了 ${bossDamage} 點傷害！(剩餘 HP: ${nextBossHp})`, "success");
+        const contactStr = chapter === 1 ? ` (接觸字數: ${coords.filter((coord) => bossCells.some((bc) => Math.abs(coord.r - bc.r) <= 1 && Math.abs(coord.c - bc.c) <= 1)).length})` : "";
+        addLog(`💥 【擊中 BOSS】對【${bossTitle}】造成了 ${bossDamage} 點傷害！${contactStr}(剩餘 HP: ${nextBossHp})`, "success");
       }
     }
 
@@ -1423,10 +1450,6 @@ export default function Home() {
     const playerLabel = gameMode === "battle" ? (currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴") : "玩家";
     const logText = `【${playerLabel}】成功放置「${activeWord}」於 ${coordsStr}${comboStr}${nutrientStr}${timeStr}${stealStr}，獲得 ${roundScore} 分！`;
     addLog(logText, currentPlayer === 1 ? "p1" : "p2");
-
-    if (bossActive && dealDamageToBoss) {
-      addLog(`💥 【擊中 BOSS】對【贅字史萊姆】造成了 ${bossDamage} 點傷害！(剩餘 HP: ${nextBossHp})`, "success");
-    }
 
     // Update board state
     setGrid(newGrid);
@@ -3141,6 +3164,36 @@ export default function Home() {
               className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-all active:scale-95 shadow-[0_4px_12px_rgba(168,85,247,0.2)] cursor-pointer"
             >
               確定
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Idiom HP Warning Modal */}
+      {duplicateWarning && (
+        <div 
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          onClick={() => setDuplicateWarning(null)}
+        >
+          <div 
+            className="bg-panel-bg border border-red-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_35px_rgba(239,68,68,0.35)] text-text-primary text-center select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-5xl mb-4 filter drop-shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-pulse">
+              ⚠️
+            </div>
+            <h3 className="text-xl font-black text-red-500 mb-2">
+              重複成語扣除生命！
+            </h3>
+            <p className="text-sm text-text-secondary leading-relaxed mb-6 font-medium">
+              您輸入了重複使用的成語「<strong className="text-red-400 font-extrabold">{duplicateWarning.word}</strong>」。依據地牢規則，重複使用已放置過的成語會被扣除 <strong className="text-red-400 font-extrabold">1 點生命值 (HP)</strong>！
+            </p>
+            <button
+              type="button"
+              onClick={() => setDuplicateWarning(null)}
+              className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-all active:scale-95 shadow-[0_4px_12px_rgba(239,68,68,0.2)] cursor-pointer"
+            >
+              我知道了
             </button>
           </div>
         </div>
