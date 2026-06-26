@@ -19,6 +19,7 @@ interface PlacedIdiom {
   player: 1 | 2;
   score: number;
   combo: number;
+  chapter?: number;
 }
 
 interface Nutrient {
@@ -134,6 +135,7 @@ export default function Home() {
     char: string;
   } | null>(null);
   const [bombStepCounter, setBombStepCounter] = useState<number>(0);
+  const [selectedRelicInfo, setSelectedRelicInfo] = useState<{ title: string; desc: string; icon: string } | null>(null);
 
   const convertToTraditional = (str: string) => {
     return str.split("").map((char) => charMap[char] || char).join("");
@@ -256,14 +258,14 @@ export default function Home() {
 
   const getTargetScoreForChapter = (ch: number) => {
     if (ch === 1) return 300;
-    if (ch === 2) return 1000;
+    if (ch === 2) return 500;
     if (ch === 3) return 1500;
     return 2000;
   };
 
   const getRelicCheckpointsForChapter = (ch: number) => {
     if (ch === 1) return [100, 200];
-    if (ch === 2) return [400, 800];
+    if (ch === 2) return [200, 400];
     return [500, 1000];
   };
 
@@ -336,6 +338,7 @@ export default function Home() {
     setRockCells(new Set());
     setActiveBomb(null);
     setBombStepCounter(0);
+    setSelectedRelicInfo(null);
   };
 
   // Switch modes handler
@@ -389,6 +392,7 @@ export default function Home() {
     setRockCells(new Set());
     setActiveBomb(null);
     setBombStepCounter(0);
+    setSelectedRelicInfo(null);
 
     // Auto-place random starter word in center
     const randomWord = STARTING_IDIOMS[Math.floor(Math.random() * STARTING_IDIOMS.length)];
@@ -441,6 +445,7 @@ export default function Home() {
         player: 1,
         score: activeMode === "battle" ? 0 : 100,
         combo: 0,
+        chapter: activeMode === "dungeon" ? 1 : undefined,
       },
     ]);
     setSelectedCell({ row: centerRow, col: centerCol });
@@ -914,6 +919,21 @@ export default function Home() {
         newGrid[centerRow][centerCol + i] = randomWord[i];
         newCellOwners[`${centerRow},${centerCol + i}`] = 1;
       }
+
+      setHistory((prev) => [
+        {
+          id: Math.random().toString(),
+          word: randomWord,
+          row: centerRow,
+          col: centerCol,
+          direction: "H",
+          player: 1,
+          score: 100,
+          combo: 0,
+          chapter: nextChapter,
+        },
+        ...prev,
+      ]);
       
       // Generate rock cells (excluding center starter word and boss 3x3 core)
       const rocks = new Set<string>();
@@ -941,6 +961,7 @@ export default function Home() {
       setRockCells(rocks);
       setActiveBomb(null);
       setBombStepCounter(0);
+      setSelectedRelicInfo(null);
       
       setGrid(newGrid);
       setCellOwners(newCellOwners);
@@ -1099,6 +1120,17 @@ export default function Home() {
 
     if (!loadingDict && !idiomsWords.has(activeWord)) {
       handleDungeonFailure(`放置失敗：「${activeWord}」非成語庫中之有效成語！`);
+      return;
+    }
+
+    // Duplicate placement check (max 2 times per game/chapter)
+    const currentChapter = gameMode === "dungeon" ? chapter : undefined;
+    const sameWordPlacements = history.filter(
+      (h) => h.word === activeWord && (gameMode !== "dungeon" || h.chapter === currentChapter)
+    ).length;
+
+    if (sameWordPlacements >= 2) {
+      handleDungeonFailure(`放置失敗：「${activeWord}」在此局/此章節中已放置過 2 次！同一個成語最多只允許重複放置 2 次。`);
       return;
     }
 
@@ -1368,6 +1400,7 @@ export default function Home() {
         player: currentPlayer,
         score: roundScore,
         combo: overlapsCount,
+        chapter: gameMode === "dungeon" ? chapter : undefined,
       },
       ...prev,
     ]);
@@ -1652,9 +1685,9 @@ export default function Home() {
                   <p className="text-[11px] text-text-secondary font-mono mb-4">// 融合 Roguelike 生存闖關 //</p>
                   
                   <ul className="text-xs text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">生命機制</strong>：擁有 3 點 HP，打錯、非成語或違反接龍扣 1 HP。</li>
-                    <li><strong className="text-text-primary">突變遺物</strong>：達 100/200 分時，可選取突變遺物增強能力。</li>
-                    <li><strong className="text-text-primary">首領激戰</strong>：300 分時 BOSS 贅字史萊姆降臨，釋放贅字格封鎖網格。</li>
+                    <li><strong className="text-text-primary">生命機制</strong>：擁有 3 點 HP，打錯、非成語或違反接龍/重複規則扣 1 HP。</li>
+                    <li><strong className="text-text-primary">突變遺物</strong>：達里程碑得分時，可選取突變遺物增強能力。</li>
+                    <li><strong className="text-text-primary">首領激戰</strong>：達到章節目標分時 BOSS 降臨（第一章 300 分，第二章 500 分）。</li>
                     <li><strong className="text-text-primary">重整晉級</strong>：擊敗 BOSS 保留生命/提示並晉級下一個章節。</li>
                   </ul>
                 </div>
@@ -1818,9 +1851,17 @@ export default function Home() {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     <span>4. Combo 連鎖加分</span>
                   </h4>
-                  <p>
+                  <p className="mb-4">
                     如果擺放一個成語的同時，重疊了地圖上<strong className="text-text-primary">多個</strong>現有漢字，將觸發 Combo 連鎖！
                     Combo 會成倍增加該成語獲得的基礎分，是爭奪積分榜的關鍵技巧。
+                  </p>
+
+                  <h4 className="font-bold text-text-primary text-base mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                    <span>5. 重複放置規則</span>
+                  </h4>
+                  <p>
+                    同一個成語最多只允許重複放置 2 次。若嘗試放置第 3 次，系統會阻擋並給予違規處罰（如地牢模式中會扣除生命值）。
                   </p>
                 </div>
               </div>
@@ -2650,10 +2691,12 @@ export default function Home() {
                         {relics.map((rId, idx) => {
                           const info = RELIC_DETAILS[rId] || { title: "未知遺物", desc: "", icon: "❓" };
                           return (
-                            <div 
-                              key={`${rId}-${idx}`} 
+                            <button 
+                              key={`${rId}-${idx}`}
+                              type="button"
+                              onClick={() => setSelectedRelicInfo(info)}
                               title={`${info.title}：\n${info.desc}`}
-                              className="group relative flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/60 border border-purple-500/20 hover:border-purple-400 hover:bg-purple-950/30 transition-all cursor-help shadow-[0_2px_8px_rgba(0,0,0,0.3)] hover:scale-105"
+                              className="group relative flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/60 border border-purple-500/20 hover:border-purple-400 hover:bg-purple-950/30 transition-all cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.3)] hover:scale-105 active:scale-95"
                             >
                               <span className="text-xl filter drop-shadow-[0_0_4px_rgba(168,85,247,0.3)]">{info.icon}</span>
                               {/* Custom Tooltip */}
@@ -2661,7 +2704,7 @@ export default function Home() {
                                 <span className="font-bold text-purple-300 text-xs mb-1 border-b border-purple-500/25 pb-0.5">{info.icon} {info.title}</span>
                                 <span>{info.desc}</span>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -2974,13 +3017,16 @@ export default function Home() {
                     <span>5. 地牢闖關模式規則</span>
                   </h4>
                   <p>
-                    ❤️ <strong className="text-text-primary">生命機制</strong>：初始擁有 3 點生命。打錯字、非成語或違反接龍規則扣除 1 點。歸零則冒險失敗。
+                    ❤️ <strong className="text-text-primary">生命機制</strong>：初始擁有 3 點生命。打錯字、非成語或違反接龍/重複規則扣除 1 點。歸零則冒險失敗。
                   </p>
                   <p>
-                    💡 <strong className="text-text-primary">提示限制</strong>：初始 3 次提示。使用提示消耗提示次數，次數為 0 時無法再使用。
+                    🔄 <strong className="text-text-primary">重複放置限制</strong>：同一個成語在同一個章節/棋局中最多可以重複放置 2 次，嘗試放置第 3 次將視為違反規則扣除 1 生命值！
                   </p>
                   <p>
-                    👹 <strong className="text-text-primary">首領降臨與機制</strong>：每章得分達到目標分時 BOSS 降臨（第一章 300 分，第二章 1000 分）。BOSS 會佔據中央 3x3 區域。
+                    💡 <strong className="text-text-primary">提示限制</strong>：初始 3 次提示。使用提示消耗提示次數，次數為 0時無法再使用。
+                  </p>
+                  <p>
+                    👹 <strong className="text-text-primary">首領降臨與機制</strong>：每章得分達到目標分時 BOSS 降臨（第一章 300 分，第二章 500 分）。BOSS 會佔據中央 3x3 區域。
                   </p>
                   <p>
                     🦠 <strong className="text-text-primary">第一章【贅字史萊姆】</strong>：每回合會噴灑「贅字阻擋格」封鎖網格。在 BOSS 核心相鄰格放置成語可對其造成傷害。
@@ -2989,7 +3035,7 @@ export default function Home() {
                     ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每 3 回合鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
                   </p>
                   <p>
-                    🏆 <strong className="text-text-primary">遺物系統</strong>：達到里程碑得分時（第一章 100/200 分，第二章 400/800 分）觸發遺物三選一，獲得強大的被動增益！
+                    🏆 <strong className="text-text-primary">遺物系統</strong>：達到里程碑得分時（第一章 100/200 分，第二章 200/400 分）觸發遺物三選一，獲得強大的被動增益！
                   </p>
                 </div>
               )}
@@ -3066,6 +3112,36 @@ export default function Home() {
             <div className="mt-4 flex items-center gap-2 bg-yellow-950/40 border border-yellow-500/20 px-4 py-2 rounded-xl text-yellow-500 font-mono text-xs">
               <span className="animate-spin inline-block mr-1">🌀</span> CHAPTER {chapter} COMPLETED
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Relic Detail Modal */}
+      {selectedRelicInfo && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedRelicInfo(null)}
+        >
+          <div 
+            className="bg-panel-bg border border-purple-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_35px_rgba(168,85,247,0.25)] text-text-primary text-center select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-5xl mb-4 filter drop-shadow-[0_0_8px_rgba(168,85,247,0.4)] animate-bounce">
+              {selectedRelicInfo.icon}
+            </div>
+            <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
+              {selectedRelicInfo.title}
+            </h3>
+            <p className="text-sm text-text-secondary leading-relaxed mb-6 font-medium">
+              {selectedRelicInfo.desc}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSelectedRelicInfo(null)}
+              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-all active:scale-95 shadow-[0_4px_12px_rgba(168,85,247,0.2)] cursor-pointer"
+            >
+              確定
+            </button>
           </div>
         </div>
       )}
