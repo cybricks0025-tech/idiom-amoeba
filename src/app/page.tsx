@@ -41,7 +41,7 @@ const STARTING_IDIOMS = [
 
 export default function Home() {
   // --- Theme State ---
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     const isLight = !document.documentElement.classList.contains("dark");
@@ -86,9 +86,14 @@ export default function Home() {
   // Battle Mode specific
   const [currentPlayer, setCurrentPlayer] = useState<1 | 2>(1);
   const [consecutivePasses, setConsecutivePasses] = useState<number>(0);
+  const [lives, setLives] = useState<{ p1: number; p2: number }>({ p1: 5, p2: 5 });
+  const [damageFlash, setDamageFlash] = useState<{ p1: boolean; p2: boolean }>({ p1: false, p2: false });
+  const [screenShake, setScreenShake] = useState<boolean>(false);
 
   // Time systems
-  const [timeLeft, setTimeLeft] = useState<number>(90); // 90s for challenge, 30s per turn for battle
+  const [timeLeft, setTimeLeft] = useState<number>(120); // 120s for challenge, 30s per turn for battle
+  const [lastTimeBonus, setLastTimeBonus] = useState<number>(0);
+  const [timerBonusTrigger, setTimerBonusTrigger] = useState<number>(0);
 
   // React 19 Ref for timers
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -106,6 +111,70 @@ export default function Home() {
       second: "2-digit",
     });
     setLogs((prev) => [{ id: Math.random().toString(), text, type, time }, ...prev].slice(0, 50));
+  };
+
+  const playExplosionSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      
+      oscGain.gain.setValueAtTime(0.6, ctx.currentTime);
+      oscGain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      
+      const bufferSize = ctx.sampleRate * 0.4;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 400;
+      filter.Q.value = 1.5;
+      
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.5, ctx.currentTime);
+      noiseGain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+      
+      noise.start();
+      noise.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+      console.warn("Web Audio API not supported or blocked by browser autocomplete policies:", e);
+    }
+  };
+
+  const triggerDamageEffect = (player: 1 | 2) => {
+    setDamageFlash((prev) => ({
+      p1: player === 1 ? true : prev.p1,
+      p2: player === 2 ? true : prev.p2,
+    }));
+    setScreenShake(true);
+    playExplosionSound();
+    setTimeout(() => {
+      setDamageFlash({ p1: false, p2: false });
+      setScreenShake(false);
+    }, 800);
   };
 
   const toggleTheme = () => {
@@ -150,11 +219,11 @@ export default function Home() {
     }
     return list;
   };
-
   // --- Reset Game with confirmation ---
   const resetGame = (mode: "free" | "challenge" | "battle") => {
     setGrid(Array(15).fill(null).map(() => Array(15).fill("")));
     setScores({ p1: 0, p2: 0 });
+    setLives({ p1: 5, p2: 5 });
     setHistory([]);
     setSelectedCell(null);
     setInputWord("");
@@ -165,7 +234,9 @@ export default function Home() {
     setWinnerOverride(null);
     setNutrients([]);
     setLogs([]);
-    setTimeLeft(mode === "battle" ? 30 : 90);
+    setTimeLeft(mode === "battle" ? 60 : mode === "challenge" ? 120 : 90);
+    setLastTimeBonus(0);
+    setTimerBonusTrigger(0);
   };
 
   // Switch modes handler
@@ -173,7 +244,7 @@ export default function Home() {
     if (targetMode === gameMode) return;
     
     const isEmpty = grid.every((row) => row.every((cell) => cell === ""));
-    if (!isEmpty) {
+    if (gameState === "playing" && !isEmpty) {
       if (!window.confirm("切換模式將清除當前畫布進度。確定要切換嗎？")) {
         return;
       }
@@ -190,6 +261,7 @@ export default function Home() {
     setGameState("playing");
     setGrid(Array(15).fill(null).map(() => Array(15).fill("")));
     setScores({ p1: 0, p2: 0 });
+    setLives({ p1: 5, p2: 5 });
     setHistory([]);
     setSelectedCell(null);
     setInputWord("");
@@ -216,18 +288,21 @@ export default function Home() {
     const initialNutrients = spawnNutrients(5, newGrid, [], activeMode === "challenge");
     setNutrients(initialNutrients);
 
+    setLastTimeBonus(0);
+    setTimerBonusTrigger(0);
+
     if (activeMode === "free") {
       setTimeLeft(90);
       setScores({ p1: 100, p2: 0 });
       addLog(`【自由練習模式】已開始！首詞為「${randomWord}」，無時間限制。`, "system");
     } else if (activeMode === "challenge") {
-      setTimeLeft(90);
+      setTimeLeft(120);
       setScores({ p1: 100, p2: 0 });
-      addLog(`【積分挑戰模式】已開始！首詞為「${randomWord}」，限時 90 秒，吃掉 ⏰ 可延長時間。`, "system");
+      addLog(`【積分挑戰模式】已開始！首詞為「${randomWord}」，限時 120 秒，吃掉 ⏰ 或正確輸入成語可延長時間。`, "system");
     } else if (activeMode === "battle") {
-      setTimeLeft(30);
-      setScores({ p1: 100, p2: 0 });
-      addLog(`【雙人對抗模式】已開始！首詞為「${randomWord}」歸藍色阿米巴，目前輪到藍色阿米巴。`, "system");
+      setTimeLeft(60);
+      setScores({ p1: 0, p2: 0 });
+      addLog(`【雙人對抗生存模式】已開始！首詞為「${randomWord}」歸藍色阿米巴，目前輪到藍色阿米巴。雙方各有 5 條生命，每回合思考時間為 60 秒！`, "system");
     }
 
     setHistory([
@@ -238,7 +313,7 @@ export default function Home() {
         col: centerCol,
         direction: "H",
         player: 1,
-        score: 100,
+        score: activeMode === "battle" ? 0 : 100,
         combo: 0,
       },
     ]);
@@ -262,16 +337,29 @@ export default function Home() {
   const handleGetHint = () => {
     if (gameState !== "playing") return;
 
-    const currentScore = currentPlayer === 1 ? scores.p1 : scores.p2;
-    if (gameMode !== "free" && currentScore < 50) {
-      addLog("積分不足 50 分，無法獲取提示！", "error");
-      return;
+    if (gameMode === "battle") {
+      const currentLives = currentPlayer === 1 ? lives.p1 : lives.p2;
+      if (currentLives <= 0) {
+        addLog("生命值已耗盡，無法獲取提示！", "error");
+        return;
+      }
+      if (!window.confirm("使用提示將扣除 1 點生命值！確定要使用嗎？")) {
+        return;
+      }
+    } else {
+      const currentScore = currentPlayer === 1 ? scores.p1 : scores.p2;
+      if (gameMode !== "free" && currentScore < 50) {
+        addLog("積分不足 50 分，無法獲取提示！", "error");
+        return;
+      }
     }
 
     if (idiomsWordsArr.length === 0) {
       addLog("成語資料庫尚未載入完成，請稍候！", "error");
       return;
     }
+
+    const placedWords = new Set(history.map((h) => h.word));
 
     // Find all occupied cells on the board
     const occupiedCells: { r: number; c: number; char: string }[] = [];
@@ -305,15 +393,19 @@ export default function Home() {
         const wordIdx = (startIdx + k) % idiomsWordsArr.length;
         const word = idiomsWordsArr[wordIdx];
 
-        // Check if the word contains the character
-        const charIndices: number[] = [];
-        for (let i = 0; i < word.length; i++) {
-          if (word[i] === char) {
-            charIndices.push(i);
-          }
-        }
+        // Avoid recommending already-used idioms
+        if (placedWords.has(word)) continue;
 
-        if (charIndices.length === 0) continue;
+        // Check if the word contains the character
+        const firstPos = word.indexOf(char);
+        if (firstPos === -1) continue;
+
+        const charIndices: number[] = [];
+        let pos = firstPos;
+        while (pos !== -1) {
+          charIndices.push(pos);
+          pos = word.indexOf(char, pos + 1);
+        }
 
         // Try both directions for all matching letter indices
         const shuffledDirs = ["H", "V"].sort(() => Math.random() - 0.5);
@@ -342,24 +434,35 @@ export default function Home() {
             setSelectedCell({ row: startR, col: startC });
             setDirection(dir as "H" | "V");
 
-            // Deduct score
+            // Deduct life / score
             if (gameMode === "battle") {
-              setScores((prev) => ({
-                ...prev,
-                p1: currentPlayer === 1 ? Math.max(0, prev.p1 - 50) : prev.p1,
-                p2: currentPlayer === 2 ? Math.max(0, prev.p2 - 50) : prev.p2,
+              setLives((prev) => ({
+                p1: currentPlayer === 1 ? prev.p1 - 1 : prev.p1,
+                p2: currentPlayer === 2 ? prev.p2 - 1 : prev.p2,
               }));
+              triggerDamageEffect(currentPlayer);
+              addLog(
+                `【系統提示】玩家 ${currentPlayer === 1 ? "一" : "二"} 使用了提示，扣除 1 點生命值！建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                "system"
+              );
             } else {
-              setScores((prev) => ({
-                ...prev,
-                p1: Math.max(0, prev.p1 - 50),
-              }));
+              if (gameMode === "challenge") {
+                setScores((prev) => ({
+                  ...prev,
+                  p1: Math.max(0, prev.p1 - 50),
+                }));
+                addLog(
+                  `【系統提示】已扣除 50 積分！建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                  "system"
+                );
+              } else {
+                // Free mode: free hint!
+                addLog(
+                  `【系統提示】建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                  "system"
+                );
+              }
             }
-
-            addLog(
-              `【系統提示】已扣除 50 積分！建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
-              "system"
-            );
             hintFound = true;
             break;
           }
@@ -454,20 +557,16 @@ export default function Home() {
             if (timerRef.current) clearInterval(timerRef.current);
             return 0;
           } else if (gameMode === "battle") {
-            // Battle mode: turn timeout auto-pass
+            // Battle mode: turn timeout - lose a life!
             const nextP = currentPlayer === 1 ? 2 : 1;
-            addLog(`玩家 ${currentPlayer === 1 ? "一" : "二"} 回合逾時！自動輪空。`, "system");
+            addLog(`玩家 ${currentPlayer === 1 ? "一" : "二"} 回合逾時！扣除 1 點生命值並更換回合。`, "error");
+            setLives((prev) => ({
+              p1: currentPlayer === 1 ? prev.p1 - 1 : prev.p1,
+              p2: currentPlayer === 2 ? prev.p2 - 1 : prev.p2,
+            }));
+            triggerDamageEffect(currentPlayer);
             setCurrentPlayer(nextP);
-            // Count as a pass
-            const newPasses = consecutivePasses + 1;
-            setConsecutivePasses(newPasses);
-            if (newPasses >= 2) {
-              setGameState("gameover");
-              addLog("兩位玩家連續逾時/棄權！遊戲結束。", "system");
-              if (timerRef.current) clearInterval(timerRef.current);
-              return 0;
-            }
-            return 30; // reset turn timer to 30s
+            return 60; // reset turn timer to 60s
           }
         }
         return prev - 1;
@@ -477,7 +576,22 @@ export default function Home() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [gameMode, gameState, currentPlayer, consecutivePasses]);
+  }, [gameMode, gameState, currentPlayer]);
+
+  // --- Check for Battle Mode Game Over (Lives) ---
+  useEffect(() => {
+    if (gameMode === "battle" && gameState === "playing") {
+      if (lives.p1 <= 0) {
+        setWinnerOverride(2); // P2 wins
+        setGameState("gameover");
+        addLog("【系統】藍色阿米巴 P1 生命值歸零，粉色阿米巴 P2 獲得勝利！", "system");
+      } else if (lives.p2 <= 0) {
+        setWinnerOverride(1); // P1 wins
+        setGameState("gameover");
+        addLog("【系統】粉色阿米巴 P2 生命值歸零，藍色阿米巴 P1 獲得勝利！", "system");
+      }
+    }
+  }, [lives, gameMode, gameState]);
 
   // --- Check empty board ---
   const isGridEmpty = () => {
@@ -573,8 +687,10 @@ export default function Home() {
         handlePlaceIdiom();
       }
     } else if (e.key === " " || e.key === "Spacebar") {
-      e.preventDefault();
-      setDirection((prev) => (prev === "H" ? "V" : "H"));
+      if (inputWord.length === 0) {
+        e.preventDefault();
+        setDirection((prev) => (prev === "H" ? "V" : "H"));
+      }
     } else if (e.key === "Tab") {
       e.preventDefault();
       setDirection((prev) => (prev === "H" ? "V" : "H"));
@@ -719,8 +835,8 @@ export default function Home() {
     const newGrid = grid.map((r) => [...r]);
     const newCellOwners = { ...cellOwners };
 
-    coords.forEach((coord) => {
-      newGrid[coord.r][coord.c] = activeWord[coord.r === row ? coord.c - col : coord.r - row];
+    coords.forEach((coord, idx) => {
+      newGrid[coord.r][coord.c] = activeWord[idx];
       newCellOwners[`${coord.r},${coord.c}`] = currentPlayer;
     });
 
@@ -739,8 +855,11 @@ export default function Home() {
     }
 
     // Apply time bonus (Challenge mode)
-    if (gameMode === "challenge" && timeBonus > 0) {
-      setTimeLeft((prev) => prev + timeBonus);
+    if (gameMode === "challenge") {
+      const totalTimeBonus = 20 + timeBonus;
+      setTimeLeft((prev) => prev + totalTimeBonus);
+      setLastTimeBonus(totalTimeBonus);
+      setTimerBonusTrigger((prev) => prev + 1);
     }
 
     // Spawn replacement nutrients
@@ -766,7 +885,8 @@ export default function Home() {
     const coordsStr = `${COL_LABELS[col]}${row + 1}`;
     const comboStr = overlapsCount > 1 ? ` (Combo x${comboMultiplier}!)` : "";
     const nutrientStr = pointNutrientCount > 0 ? ` 吸收養分點(+${pointNutrientCount * 200})` : "";
-    const timeStr = timeBonus > 0 ? ` 延長時間(+${timeBonus}s)` : "";
+    const totalTimeBonus = gameMode === "challenge" ? 20 + timeBonus : timeBonus;
+    const timeStr = totalTimeBonus > 0 ? ` 延長時間(+${totalTimeBonus}s)` : "";
     const stealStr = stealPoints > 0 ? ` 掠奪對手領地(+${stealPoints})` : "";
 
     const logText = `【${currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴"}】成功放置「${activeWord}」於 ${coordsStr}${comboStr}${nutrientStr}${timeStr}${stealStr}，獲得 ${roundScore} 分！`;
@@ -785,30 +905,32 @@ export default function Home() {
     // Switch turns / resets
     if (gameMode === "battle") {
       setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
-      setTimeLeft(30); // reset turn time
+      setTimeLeft(60); // reset turn time
     }
 
     if (!wordToPlace) {
       setInputWord("");
     }
+    setSelectedCell(null);
   };
 
   // --- Action: Pass Turn (Battle Mode only) ---
   const handlePassTurn = () => {
     if (gameMode !== "battle" || gameState !== "playing") return;
 
+    if (!window.confirm("確定要棄權嗎？棄權將扣除 1 點生命值！")) return;
+
     const nextP = currentPlayer === 1 ? 2 : 1;
-    addLog(`【${currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴"}】選擇棄權換人。`, "info");
+    addLog(`【${currentPlayer === 1 ? "藍色阿米巴" : "粉色阿米巴"}】選擇棄權，扣除 1 點生命值並換人。`, "error");
     
+    setLives((prev) => ({
+      p1: currentPlayer === 1 ? prev.p1 - 1 : prev.p1,
+      p2: currentPlayer === 2 ? prev.p2 - 1 : prev.p2,
+    }));
+    triggerDamageEffect(currentPlayer);
+
     setCurrentPlayer(nextP);
-    setTimeLeft(30);
-    
-    const newPasses = consecutivePasses + 1;
-    setConsecutivePasses(newPasses);
-    if (newPasses >= 2) {
-      setGameState("gameover");
-      addLog("兩位玩家皆棄權！遊戲結束。", "system");
-    }
+    setTimeLeft(60);
   };
 
   // --- Action: Place Random Starter Word (Free/Solo modes) ---
@@ -854,13 +976,24 @@ export default function Home() {
 
   // --- Action: Clear Board Dialog ---
   const handleClearBoard = () => {
-    if (window.confirm("確定要清除整張畫布並重設分數嗎？")) {
+    const isEmpty = isGridEmpty();
+    if (gameState === "playing" && !isEmpty) {
+      if (window.confirm("確定要放棄當前遊戲並重設嗎？")) {
+        resetGame(gameMode);
+      }
+    } else {
       resetGame(gameMode);
     }
   };
 
   // Determine winner for Battle mode game over
   const getWinnerInfo = () => {
+    if (lives.p1 <= 0) {
+      return { text: "粉色阿米巴 (Player 2) 因對手生命值歸零獲勝！", style: "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]" };
+    }
+    if (lives.p2 <= 0) {
+      return { text: "藍色阿米巴 (Player 1) 因對手生命值歸零獲勝！", style: "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]" };
+    }
     if (winnerOverride) {
       if (winnerOverride === 1) {
         return { text: "藍色阿米巴 (Player 1) 因對手認輸獲勝！", style: "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]" };
@@ -877,7 +1010,10 @@ export default function Home() {
   };
 
   return (
-    <div className="flex-1 w-full min-h-screen bg-background bg-gradient-radial from-brand-bg-from via-brand-bg-via to-brand-bg-to text-text-primary flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 font-sans selection:bg-pink-500 selection:text-white relative overflow-hidden transition-colors duration-300">
+    <div className={`flex-1 w-full min-h-screen bg-background bg-gradient-radial from-brand-bg-from via-brand-bg-via to-brand-bg-to text-text-primary flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 font-sans selection:bg-pink-500 selection:text-white relative overflow-hidden transition-colors duration-300 ${screenShake ? "shake-screen" : ""}`}>
+      {/* Fullscreen red flash overlay when damaged */}
+      {screenShake && <div className="damage-flash-overlay" />}
+
       {/* Scanline CRT Overlay */}
       <div style={{ opacity: 'var(--crt-opacity)' }} className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.15)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.005),rgba(0,0,255,0.01))] bg-[size:100%_4px,6px_100%] pointer-events-none z-10 transition-opacity duration-300"></div>
 
@@ -969,11 +1105,12 @@ export default function Home() {
                     </span>
                   </div>
                   <h3 className="text-2xl font-black text-text-primary mb-1">積分挑戰模式</h3>
-                  <p className="text-xs text-text-secondary font-mono mb-4">// 限時 90s 的高分大作戰 //</p>
+                  <p className="text-xs text-text-secondary font-mono mb-4">// 限時 120s 的高分大作戰 //</p>
                   
                   <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">限時 90 秒</strong>：爭分奪秒！倒數結束將自動結算最終成績。</li>
-                    <li><strong className="text-text-primary">時間能量點</strong>：吃掉地圖上的時鐘養分（⏰）可增加 <strong>+10秒</strong>！</li>
+                    <li><strong className="text-text-primary">限時 120 秒</strong>：爭分奪秒！倒數結束將自動結算最終成績。</li>
+                    <li><strong className="text-text-primary">成語加時</strong>：每成功放置一個正確成語可增加 <strong>+20秒</strong>！</li>
+                    <li><strong className="text-text-primary">時間能量點</strong>：吃掉地圖上的時鐘養分（⏰）可額外增加 <strong>+10秒</strong>！</li>
                     <li><strong className="text-text-primary">提示扣除分數</strong>：使用求助提示每次將扣除 <strong>50分</strong>。</li>
                     <li><strong className="text-text-primary">Combo 翻倍</strong>：重疊多個漢字將獲得 Combo 連鎖加分！</li>
                   </ul>
@@ -1004,13 +1141,13 @@ export default function Home() {
                     </span>
                   </div>
                   <h3 className="text-2xl font-black text-text-primary mb-1">雙人對決模式</h3>
-                  <p className="text-xs text-text-secondary font-mono mb-4">// 同屏 1v1 回合制智力對抗 //</p>
+                  <p className="text-xs text-text-secondary font-mono mb-4">// 同屏 1v1 生存與領地爭奪對抗 //</p>
                   
                   <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">回合制輪流</strong>：藍阿米巴 (P1) vs 粉阿米巴 (P2) 回合對戰。</li>
-                    <li><strong className="text-text-primary">30 秒單回限時</strong>：超時則該回合棄權並換下位玩家。</li>
-                    <li><strong className="text-text-primary">領地掠奪</strong>：重疊對手的文字會將該領地奪過來，外加 <strong>+150 掠奪分</strong>！</li>
-                    <li>連續棄權或有人認輸則遊戲結束，結算最終勝者。</li>
+                    <li><strong className="text-text-primary">回合制生存戰</strong>：藍阿米巴 (P1) vs 粉阿米巴 (P2) 回合制生存對抗。</li>
+                    <li><strong className="text-text-primary">60 秒限時與生命</strong>：每人 5 條生命，回合超時或棄權扣 1 條命並換人。</li>
+                    <li><strong className="text-text-primary">提示扣除生命</strong>：使用求助提示每次將扣除 <strong>1 點生命值</strong>。</li>
+                    <li><strong className="text-text-primary">領地掠奪與 0 分起始</strong>：雙方起始分數為 0，重疊對手文字可獲得 <strong>+150 掠奪分/格</strong>。</li>
                   </ul>
                 </div>
                 
@@ -1179,9 +1316,26 @@ export default function Home() {
                       </span>
                     </div>
                     {gameMode === "challenge" && (
-                      <div className="bg-input-bg border border-emerald-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(16,185,129,0.05)] animate-pulse transition-all duration-300">
+                      <div 
+                        key={`timer-box-${timerBonusTrigger}`}
+                        className={`bg-input-bg border border-emerald-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(16,185,129,0.05)] transition-all duration-300 relative ${
+                          timerBonusTrigger > 0 ? "animate-timer-bonus" : "animate-pulse"
+                        }`}
+                      >
+                        {timerBonusTrigger > 0 && (
+                          <span 
+                            key={`float-${timerBonusTrigger}`}
+                            className="absolute -top-7 text-xl font-mono font-black text-emerald-500 dark:text-emerald-400 animate-float-up pointer-events-none drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                          >
+                            +{lastTimeBonus}s
+                          </span>
+                        )}
                         <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest font-mono">Time Left</span>
-                        <span className={`text-2xl font-mono font-black ${timeLeft <= 15 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-300"} drop-shadow-[0_0_6px_rgba(52,211,153,0.2)]`}>
+                        <span className={`text-2xl font-mono font-black ${
+                          timeLeft <= 15
+                            ? "text-red-500 dark:text-red-400 animate-pulse"
+                            : "text-emerald-600 dark:text-emerald-300"
+                        } drop-shadow-[0_0_6px_rgba(52,211,153,0.2)]`}>
                           {timeLeft}s
                         </span>
                       </div>
@@ -1191,8 +1345,10 @@ export default function Home() {
                   /* Two Player Battle Scoreboard */
                   <div className="flex items-center gap-4">
                     {/* P1 Scoreboard */}
-                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[100px] transition-all duration-300 ${
-                      currentPlayer === 1 && gameState === "playing"
+                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[110px] transition-all duration-300 ${
+                      damageFlash.p1
+                        ? "animate-damage-card border-red-500"
+                        : currentPlayer === 1 && gameState === "playing"
                         ? "border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)] scale-105"
                         : "border-cyan-500/20 opacity-60"
                     }`}>
@@ -1200,19 +1356,36 @@ export default function Home() {
                       <span className="text-xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_4px_rgba(34,211,238,0.3)]">
                         {String(scores.p1).padStart(5, "0")}
                       </span>
+                      {/* P1 Lives */}
+                      <div className="flex gap-0.5 mt-1 select-none">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`text-[10px] transition-all duration-300 ${
+                              i < lives.p1
+                                ? "text-red-500 scale-100 filter drop-shadow-[0_0_2px_rgba(239,68,68,0.7)]"
+                                : "text-gray-400 opacity-20 scale-90"
+                            }`}
+                          >
+                            ❤️
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Turn countdown bar */}
                     <div className="flex flex-col items-center min-w-[60px]">
                       <span className="text-[9px] text-text-secondary font-bold uppercase tracking-widest font-mono">Turn Time</span>
-                      <span className={`text-lg font-mono font-bold ${timeLeft <= 5 ? "text-red-500 animate-ping" : "text-text-primary"}`}>
+                      <span className={`text-lg font-mono font-bold ${timeLeft <= 10 ? "text-red-500 animate-pulse" : "text-text-primary"}`}>
                         {timeLeft}s
                       </span>
                     </div>
 
                     {/* P2 Scoreboard */}
-                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[100px] transition-all duration-300 ${
-                      currentPlayer === 2 && gameState === "playing"
+                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[110px] transition-all duration-300 ${
+                      damageFlash.p2
+                        ? "animate-damage-card border-red-500"
+                        : currentPlayer === 2 && gameState === "playing"
                         ? "border-pink-400 shadow-[0_0_12px_rgba(244,63,94,0.3)] scale-105"
                         : "border-pink-500/20 opacity-60"
                     }`}>
@@ -1220,6 +1393,21 @@ export default function Home() {
                       <span className="text-xl font-mono font-black text-pink-600 dark:text-pink-300 drop-shadow-[0_0_4px_rgba(244,63,94,0.3)]">
                         {String(scores.p2).padStart(5, "0")}
                       </span>
+                      {/* P2 Lives */}
+                      <div className="flex gap-0.5 mt-1 select-none">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`text-[10px] transition-all duration-300 ${
+                              i < lives.p2
+                                ? "text-red-500 scale-100 filter drop-shadow-[0_0_2px_rgba(239,68,68,0.7)]"
+                                : "text-gray-400 opacity-20 scale-90"
+                            }`}
+                          >
+                            ❤️
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1236,8 +1424,8 @@ export default function Home() {
                   {gameMode === "free"
                     ? "自由練習，可隨時放置且無時間限制。"
                     : gameMode === "challenge"
-                    ? "限時 90 秒爭取最高分，吃掉【⏰ 綠色時鐘】可延長 10 秒時間！"
-                    : "雙人回合輪流出牌，佔領對手重疊的格子可獲得額外掠奪分（+150/格）！"}
+                    ? "限時 120 秒爭取最高分，輸入正確成語可增加 20 秒，吃掉【⏰ 綠色時鐘】可額外延長 10 秒！"
+                    : "雙人生存對抗，雙方各有 5 條生命，限時 60 秒。超時、棄權或使用提示扣 1 條命，扣完者輸！"}
                 </span>
               </div>
             </header>
@@ -1254,7 +1442,7 @@ export default function Home() {
                       GAME OVER
                     </h2>
                     <p className="text-xs text-text-secondary uppercase tracking-widest font-mono mb-6">
-                      {gameMode === "free" ? "// 您已選擇放棄此局 //" : gameMode === "challenge" ? "// 挑戰時間截止 //" : "// 雙方回合棄權或玩家認輸 //"}
+                      {gameMode === "free" ? "// 您已選擇放棄此局 //" : gameMode === "challenge" ? "// 挑戰時間截止 //" : "// 生命值歸零、回合棄權或玩家認輸 //"}
                     </p>
 
                     <div className="bg-input-bg border border-panel-border/40 rounded-xl p-6 flex flex-col items-center gap-4 min-w-[280px] mb-8 shadow-2xl transition-all duration-300">
@@ -1477,7 +1665,7 @@ export default function Home() {
                                   !cellValue && gameState === "playing" ? "hover:border-cyan-500/40 hover:bg-cyan-500/5" : ""
                                 }`}
                               >
-                                {cellValue || (isPreviewOverlap ? cellValue || previewChar : previewChar)}
+                                {cellValue || previewChar}
 
                                 {/* Slot-number badge on preview cells */}
                                 {isPreviewCell && !cellValue && !previewClash && (
@@ -1560,72 +1748,150 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* 🎯 Unified Gameplay Action Console */}
-                {gameState === "playing" && (
-                  <div className="w-full mt-4 bg-input-bg/30 border border-panel-border/20 rounded-xl p-4 flex flex-col gap-3 transition-all duration-300">
-                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                      {/* Left: Input with embedded indicator */}
-                      <div className="flex-1 flex flex-col gap-1.5">
-                        <div className="relative flex items-center w-full">
-                          <input
-                            type="text"
-                            maxLength={5}
-                            value={inputWord}
-                            disabled={gameState !== "playing"}
-                            onChange={(e) => setInputWord(e.target.value.trim())}
-                            onKeyDown={handleInputKeyDown}
-                            placeholder={selectedCell ? "請輸入 4-5 字成語..." : "← 請先選取網格起點"}
-                            className="w-full bg-input-bg border border-input-border hover:border-panel-border focus:border-cyan-500 dark:focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_8px_rgba(34,211,238,0.15)] rounded-lg pl-3.5 pr-20 py-2 text-sm text-text-primary transition-all font-medium placeholder-text-secondary/50 disabled:opacity-60 disabled:cursor-not-allowed"
-                          />
-                          {/* Direction Indicator Switch embedded inside Input as a badge */}
-                          {selectedCell && (
-                            <button
-                              type="button"
-                              onClick={() => setDirection(prev => prev === "H" ? "V" : "H")}
-                              className={`absolute right-2 px-2 py-0.5 text-[9px] font-bold rounded border cursor-pointer select-none transition-all active:scale-95 ${
-                                direction === "H"
-                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
-                                  : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
-                              }`}
-                              title="點擊切換方向 (或按空白鍵)"
-                            >
-                              {direction === "H" ? "▶ 橫向" : "▼ 縱向"}
-                            </button>
-                          )}
+
+              </section>
+
+              {/* RIGHT: Game Controls & Helpers (4 Cols) */}
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                
+                {/* 🎮 遊戲主控制台 (Gameplay Controller Panel) */}
+                <section className="bg-panel-bg backdrop-blur-md border-2 border-cyan-500/10 dark:border-panel-border rounded-2xl p-5 shadow-[4px_6px_30px_rgba(0,0,0,0.06)] dark:shadow-[4px_6px_30px_rgba(0,0,0,0.6)] flex flex-col gap-4 transition-all duration-300 relative overflow-hidden">
+                  
+                  {/* Glowing header stripe */}
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500"></div>
+
+                  <h2 className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-purple-600 dark:from-cyan-400 dark:to-purple-400 flex items-center justify-between border-b border-input-border/30 pb-2 select-none">
+                    <span className="flex items-center gap-2">
+                      <span>🕹️ 遊戲操作控制台</span>
+                      {gameMode === "battle" && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                          currentPlayer === 1 ? "bg-cyan-500/20 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400" : "bg-pink-500/20 text-pink-700 dark:bg-pink-950 dark:text-pink-400"
+                        }`}>
+                          P{currentPlayer} 回合
+                        </span>
+                      )}
+                    </span>
+                  </h2>
+
+                  <div className="flex flex-col gap-4">
+                    {/* STEP 1: SELECT GRID CELL */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center font-mono text-[10px] border border-cyan-500/20">1</span>
+                        <span>設定成語放置起點</span>
+                      </span>
+                      
+                      {selectedCell ? (
+                        <div className="flex items-center justify-between bg-cyan-500/5 dark:bg-cyan-950/20 border border-cyan-500/20 dark:border-cyan-800/30 rounded-lg p-2.5">
+                          <span className="text-xs text-text-secondary">當前選中座標：</span>
+                          <span className="font-mono font-black text-sm text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded">
+                            {COL_LABELS[selectedCell.col]} {selectedCell.row + 1}
+                          </span>
                         </div>
+                      ) : (
+                        <div className="bg-amber-500/5 border border-amber-500/30 dark:border-amber-500/20 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-500 animate-pulse font-medium leading-relaxed">
+                          👉 <strong>指示說明</strong>：請先點擊左側棋盤中的任何格子，以設定您要放置的成語第一個字（起點格）！
+                        </div>
+                      )}
+                    </div>
 
-                        {/* Inline dynamically updated rule checking tooltip */}
-                        {preview && (
-                          <div className="flex items-center gap-1.5 px-1">
-                            <span className={`text-[10px] font-extrabold ${preview.isValid ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
-                              {preview.isValid ? "✓ 擺放檢測合格" : "✗"}
-                            </span>
-                            <span className="text-[10px] text-text-secondary select-none">
-                              {!preview.isValid && (
-                                <>
-                                  {inputWord.trim().length !== 4 && inputWord.trim().length !== 5 && `字數須為 4-5 字 (當前 ${inputWord.trim().length} 字) • `}
-                                  {preview.hasNonChinese && "須為中文漢字 • "}
-                                  {!preview.inBounds && "超出網格邊界 • "}
-                                  {preview.hasClash && "字元衝突 • "}
-                                  {!preview.isGridEmpty && !preview.hasOverlap && "須與現存阿米巴重疊 • "}
-                                  {!loadingDict && !preview.isDictValid && `「${inputWord.trim()}」非有效成語 • `}
-                                  {loadingDict && "成語庫載入中... • "}
-                                </>
-                              )}
-                              {preview.isValid && "按 Enter 鍵或放置按鈕寫入網格"}
-                            </span>
-                          </div>
-                        )}
+                    {/* STEP 2: INPUT WORD */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-mono text-[10px] border border-purple-500/20">2</span>
+                        <span>輸入 4-5 字成語</span>
+                      </span>
+                      <p className="text-[10px] text-text-secondary leading-normal">
+                        輸入的字會與棋盤既有文字自動比對，至少需共用一個字以重疊接龍。
+                      </p>
+                      <input
+                        type="text"
+                        maxLength={5}
+                        value={inputWord}
+                        disabled={!selectedCell || gameState !== "playing"}
+                        onChange={(e) => setInputWord(e.target.value.trim())}
+                        onKeyDown={handleInputKeyDown}
+                        placeholder={selectedCell ? "在此輸入中文成語..." : "⚠️ 請先選取起點格後方可輸入"}
+                        className="w-full bg-input-bg border border-input-border hover:border-panel-border focus:border-cyan-500 dark:focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_8px_rgba(34,211,238,0.15)] rounded-lg px-3 py-2 text-sm text-text-primary transition-all font-medium placeholder-text-secondary/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* STEP 3: SELECT DIRECTION */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono text-[10px] border border-indigo-500/20">3</span>
+                        <span>選擇排列方向</span>
+                      </span>
+                      <p className="text-[10px] text-text-secondary leading-normal">
+                        設定成語是由起點向右（橫向）或向下（縱向）延伸。
+                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDirection("H")}
+                          disabled={!selectedCell || gameState !== "playing"}
+                          className={`py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            direction === "H"
+                              ? "bg-purple-600 text-white border-transparent shadow-[0_0_8px_rgba(168,85,247,0.25)] dark:bg-purple-500"
+                              : "bg-input-bg/50 border-input-border text-text-secondary hover:text-text-primary hover:bg-input-bg disabled:opacity-50 disabled:cursor-not-allowed"
+                          }`}
+                        >
+                          <span>◀▶ 橫向排列 (H)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDirection("V")}
+                          disabled={!selectedCell || gameState !== "playing"}
+                          className={`py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            direction === "V"
+                              ? "bg-indigo-600 text-white border-transparent shadow-[0_0_8px_rgba(99,102,241,0.25)] dark:bg-indigo-500"
+                              : "bg-input-bg/50 border-input-border text-text-secondary hover:text-text-primary hover:bg-input-bg disabled:opacity-50 disabled:cursor-not-allowed"
+                          }`}
+                        >
+                          <span>▲▼ 縱向排列 (V)</span>
+                        </button>
                       </div>
+                    </div>
 
-                      {/* Right: Place Button and Utility Buttons */}
-                      <div className="flex items-stretch gap-2 shrink-0">
-                        {/* Place Button */}
+                    {/* STEP 4: PLACE BUTTON & PREVIEW VERIFICATION */}
+                    <div className="flex flex-col gap-2 border-t border-input-border/30 pt-3 mt-1">
+                      {/* Dynamic Rule Check Alerts */}
+                      {preview && (
+                        <div
+                          className={`p-2.5 rounded-lg border text-[11px] leading-relaxed flex flex-col gap-1 transition-all ${
+                            preview.isValid
+                              ? "bg-green-500/10 dark:bg-green-950/20 border-green-500/20 dark:border-green-800/40 text-green-700 dark:text-green-400"
+                              : "bg-red-500/10 dark:bg-red-950/20 border-red-500/20 dark:border-red-800/40 text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          <span className="font-bold font-mono">
+                            {preview.isValid ? "✓ 擺放檢測合格" : "✗ 擺放不符規則"}
+                          </span>
+                          <span className="leading-normal font-normal">
+                            {!preview.isValid && (
+                              <>
+                                {inputWord.trim().length !== 4 && inputWord.trim().length !== 5 && `• 字數須為 4-5 字 (當前為 ${inputWord.trim().length} 字)\n`}
+                                {preview.hasNonChinese && "• 必須全部為中文漢字\n"}
+                                {!preview.inBounds && "• 部分字元會超出網格邊界\n"}
+                                {preview.hasClash && "• 與既存字元發生衝突\n"}
+                                {!preview.isGridEmpty && !preview.hasOverlap && "• 必須與既存字元重疊(阿米巴接龍)\n"}
+                                {!loadingDict && !preview.isDictValid && `• 「${inputWord.trim()}」非有效成語\n`}
+                                {loadingDict && "• 成語庫載入中...\n"}
+                              </>
+                            )}
+                            {preview.isValid && "比對合格！按 Enter 鍵或下方按鈕寫入網格"}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 items-stretch mt-1">
+                        {/* Primary Place Button */}
                         <button
                           type="button"
                           onClick={() => handlePlaceIdiom()}
                           disabled={!selectedCell || !inputWord || preview?.isValid === false || gameState !== "playing"}
-                          className={`px-5 py-2.5 rounded-lg font-extrabold text-xs transition-all duration-200 cursor-pointer active:scale-97 select-none border min-w-[90px] ${
+                          className={`flex-1 py-2.5 rounded-lg font-black text-xs transition-all duration-200 cursor-pointer active:scale-97 select-none border text-center ${
                             !selectedCell || !inputWord || gameState !== "playing"
                               ? "bg-input-bg border-input-border text-text-secondary/40 cursor-not-allowed"
                               : preview?.isValid === false
@@ -1644,49 +1910,50 @@ export default function Home() {
                         <button
                           type="button"
                           onClick={handleGetHint}
-                          disabled={loadingDict || (gameMode !== "free" && (currentPlayer === 1 ? scores.p1 : scores.p2) < 50)}
-                          className="px-3 py-2.5 rounded-lg font-bold text-[11px] bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
-                          title="獲取一個接龍字詞提示，每次使用扣除 50 分"
+                          disabled={
+                            loadingDict ||
+                            (gameMode === "battle"
+                              ? (currentPlayer === 1 ? lives.p1 : lives.p2) <= 0
+                              : gameMode !== "free" && (currentPlayer === 1 ? scores.p1 : scores.p2) < 50)
+                          }
+                          className="px-3 rounded-lg font-bold text-xs bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex flex-col justify-center items-center gap-0.5 shrink-0"
+                          title={gameMode === "battle" ? "獲取接龍提示，每次使用扣除 1 點生命值" : "獲取接龍提示，每次使用扣除 50 分"}
                         >
-                          <span>💡 提示</span>
-                          <span className="scale-90 font-mono text-[9px] opacity-75">-50pt</span>
+                          <span className="text-[11px]">💡 提示</span>
+                          <span className="scale-75 font-mono text-[9px] opacity-75 leading-none">
+                            {gameMode === "battle" ? "-1 Life" : gameMode === "free" ? "Free" : "-50pt"}
+                          </span>
                         </button>
+                      </div>
 
-                        {/* Pass Turn Button (Battle Mode Only) */}
+                      {/* Battle Pass & Give Up buttons row */}
+                      <div className="flex gap-2 mt-1">
                         {gameMode === "battle" && gameState === "playing" && (
                           <button
                             type="button"
                             onClick={handlePassTurn}
-                            className="px-3.5 py-2.5 rounded-lg font-bold text-[11px] bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
+                            className="flex-1 py-1.5 rounded-lg font-bold text-[10px] bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
                           >
                             Pass
                           </button>
                         )}
-                        
-                        {/* Surrender Button */}
                         <button
                           type="button"
                           onClick={handleGiveUp}
-                          className="px-3 py-2.5 rounded-lg font-bold text-[11px] bg-input-bg border border-red-500/20 text-red-500 hover:bg-red-500/10 active:scale-97 transition-all cursor-pointer flex items-center justify-center"
-                          title={gameMode === "battle" ? "認輸" : "放棄此局"}
+                          className="flex-1 py-1.5 rounded-lg font-bold text-[10px] bg-input-bg border border-red-500/20 text-red-500 hover:bg-red-500/10 active:scale-97 transition-all cursor-pointer text-center"
                         >
-                          <span>🏳️ {gameMode === "battle" ? "認輸" : "投降"}</span>
+                          🏳️ {gameMode === "battle" ? "認輸" : "放棄此局"}
                         </button>
                       </div>
-                    </div>
-                    {/* Visual Tip about shortcuts */}
-                    {selectedCell && (
-                      <div className="text-[10px] text-text-secondary/50 font-mono text-center -mt-1 select-none">
-                        快捷提示：點擊已選格子或按 <kbd className="bg-input-bg/60 border border-input-border/60 px-1 py-0.5 rounded text-[8px]">Space</kbd> 切換方向，輸入框按 <kbd className="bg-input-bg/60 border border-input-border/60 px-1 py-0.5 rounded text-[8px]">Enter</kbd> 放置。
-                      </div>
-                    )}
-                  </div>
-                )}
-              </section>
 
-              {/* RIGHT: Game Info & Helpers (4 Cols) */}
-              <div className="lg:col-span-4 flex flex-col gap-6">
-                
+                      {/* ShortCut Info */}
+                      <div className="text-[9px] text-text-secondary/50 font-mono text-center mt-2 leading-relaxed select-none border-t border-input-border/20 pt-2">
+                        快捷提示：點選格子或按 <kbd className="px-1 border rounded bg-input-bg text-[8px]">Space</kbd> 切換橫縱，輸入框按 <kbd className="px-1 border rounded bg-input-bg text-[8px]">Enter</kbd> 放置。
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 {/* Idiom Details Card (dynamic) */}
                 {selectedCellIdioms.length > 0 ? (
                   <section className="bg-panel-bg backdrop-blur-md border border-cyan-500/30 rounded-2xl p-5 shadow-[0_0_25px_rgba(6,182,212,0.06)] dark:shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col gap-4 transition-all duration-300">
@@ -1778,7 +2045,7 @@ export default function Home() {
                   </summary>
                   <div className="mt-3 border-t border-input-border/30 pt-3 flex flex-col gap-2 cursor-default" onClick={(e) => e.stopPropagation()}>
                     <p className="text-[11px] text-text-secondary leading-normal">
-                      點擊下方成語，可將其快速填入主操作欄中：
+                      點擊下方成語，可將其快速填入上方輸入欄：
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {PRESET_IDIOMS.map((idiom) => (
@@ -1961,7 +2228,7 @@ export default function Home() {
                 </h4>
                 <p>
                   本遊戲包含<strong>嚴格的中文漢字成語庫驗證</strong>。每次輸入必須為有效成語且字數為 4 或 5 個字。
-                  如果卡關，可以點擊主控制台的 <span className="font-bold text-cyan-600 dark:text-cyan-400">💡 提示</span>，系統會檢索字典自動在您的起點格放置一條可行成語（每次使用扣除 50 分）。
+                  如果卡關，可以點擊主控制台的 <span className="font-bold text-cyan-600 dark:text-cyan-400">💡 提示</span>，系統會檢索字典自動在您的起點格放置一條可行成語（自由模式免費，積分挑戰模式扣除 50 分，雙人對決模式扣除 1 點生命值）。
                 </p>
               </div>
 
@@ -1980,11 +2247,12 @@ export default function Home() {
                 <div className="border-t border-panel-border/30 pt-3 mt-2">
                   <h4 className="font-bold text-pink-500 text-base mb-1.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
-                    <span>5. 雙人對決特殊規則</span>
+                    <span>5. 雙人對決生存規則</span>
                   </h4>
                   <p>
-                    藍阿米巴 (P1) 與粉阿米巴 (P2) 回合制輪流出牌，單回合限時 30 秒。
-                    重疊對手的文字會將該領地奪過來，並外加 <strong className="text-text-primary">+150 掠奪分/格</strong>。連續兩次逾時或棄權將結束遊戲。
+                    藍阿米巴 (P1) 與粉阿米巴 (P2) 回合制生存對抗，雙方起始分數為 0 分，每人各有 5 條生命，單回合限時 60 秒。
+                    回合超時、主動棄權 (Pass) 將扣除 1 點生命值並換人，點擊提示也將扣除 1 點生命值。生命值最先歸零的人直接判輸！
+                    重疊對手的文字會將該領地奪過來，並外加 <strong className="text-text-primary">+150 掠奪分/格</strong>。
                   </p>
                 </div>
               )}

@@ -247,3 +247,107 @@ body {
 .direction-arrow-flow {
   animation: arrow-flow 0.9s ease-in-out infinite;
 }
+
+/* Time bonus floating text animation */
+@keyframes float-up-fade-out {
+  0% {
+    opacity: 0;
+    transform: translateY(15px) scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+  }
+}
+
+.animate-float-up {
+  animation: float-up-fade-out 1.2s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+/* Green flash for timer box on time addition */
+@keyframes timer-glow-green {
+  0% {
+    box-shadow: 0 0 0px rgba(16, 185, 129, 0);
+    transform: scale(1);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+  20% {
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+    transform: scale(1.08);
+    border-color: rgba(16, 185, 129, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.05);
+    transform: scale(1);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+}
+
+.animate-timer-bonus {
+  animation: timer-glow-green 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* ============================================================
+   Survival Mode Damage Visual Effects
+   ============================================================ */
+
+/* Fullscreen red flash overlay */
+@keyframes red-damage-flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.damage-flash-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(239, 68, 68, 0.45);
+  pointer-events: none;
+  z-index: 9999;
+  animation: red-damage-flash 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Severe shaking animation for the entire game board/container */
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-8px, -6px) rotate(-1.5deg); }
+  20% { transform: translate(8px, 6px) rotate(1.5deg); }
+  30% { transform: translate(-10px, 4px) rotate(-2deg); }
+  40% { transform: translate(10px, -4px) rotate(2deg); }
+  50% { transform: translate(-8px, 6px) rotate(-1.5deg); }
+  60% { transform: translate(8px, -6px) rotate(1.5deg); }
+  70% { transform: translate(-6px, -4px) rotate(-1deg); }
+  80% { transform: translate(6px, 4px) rotate(1deg); }
+  90% { transform: translate(-4px, 2px) rotate(-0.5deg); }
+}
+
+.shake-screen {
+  animation: screen-shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Severe scoreboard damage flash and tilt shake */
+@keyframes score-damage-flash {
+  0%, 100% {
+    background-color: var(--input-bg);
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 0px rgba(239, 68, 68, 0);
+  }
+  20%, 50% {
+    background-color: rgba(239, 68, 68, 0.25);
+    border-color: rgb(239, 68, 68);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.8);
+    transform: scale(1.15) rotate(-3deg);
+  }
+  35%, 65% {
+    transform: scale(1.15) rotate(3deg);
+  }
+}
+
+.animate-damage-card {
+  animation: score-damage-flash 0.8s ease-in-out forwards;
+}
+
+
