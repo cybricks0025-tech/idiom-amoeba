@@ -61,6 +61,10 @@ export default function Home() {
   const [direction, setDirection] = useState<"H" | "V">("H");
   const [history, setHistory] = useState<PlacedIdiom[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  // Visual effects: track recently placed cells for flash animation
+  const [lastPlacedCells, setLastPlacedCells] = useState<Set<string>>(new Set());
+  // Re-key preview animations when preview content changes
+  const previewKeyRef = useRef<number>(0);
 
   // --- Multi-Mode Core States ---
   const [scores, setScores] = useState<{ p1: number; p2: number }>({ p1: 0, p2: 0 });
@@ -493,7 +497,7 @@ export default function Home() {
       const isWordInBounds = coord.r >= 0 && coord.r < 15 && coord.c >= 0 && coord.c < 15;
       if (!isWordInBounds) {
         inBounds = false;
-        return { ...coord, char: trimmed[index] || "", inBounds: false, clash: false, overlap: false };
+        return { ...coord, char: trimmed[index] || "", inBounds: false, clash: false, overlap: false, slotIndex: index };
       }
 
       const existingChar = grid[coord.r][coord.c];
@@ -510,12 +514,16 @@ export default function Home() {
         inBounds: true,
         clash: isClash,
         overlap: isOverlap,
+        slotIndex: index,
       };
     });
 
     const empty = isGridEmpty();
     const isDictValid = loadingDict || idiomsWords.has(trimmed);
     const isValid = inBounds && !hasClash && !hasNonChinese && (trimmed.length === 4 || trimmed.length === 5) && (empty || hasOverlap) && isDictValid;
+
+    // Bump key so preview cells re-animate when content changes
+    previewKeyRef.current += 1;
 
     return {
       cells: previewGridCells,
@@ -526,6 +534,7 @@ export default function Home() {
       hasNonChinese,
       isGridEmpty: empty,
       isDictValid,
+      previewKey: previewKeyRef.current,
     };
   };
 
@@ -723,6 +732,11 @@ export default function Home() {
     setGrid(newGrid);
     setCellOwners(newCellOwners);
     setConsecutivePasses(0);
+
+    // Trigger placement flash animation on newly placed cells
+    const placedKeys = new Set(coords.map((coord) => `${coord.r},${coord.c}`));
+    setLastPlacedCells(placedKeys);
+    setTimeout(() => setLastPlacedCells(new Set()), 500);
 
     // Switch turns / resets
     if (gameMode === "battle") {
@@ -1225,17 +1239,22 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-
                 {/* Grid legends */}
                 <div className="w-full flex items-center justify-between text-xs text-text-secondary mb-4 px-2">
                   <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
                     <div className="flex items-center gap-1.5">
-                      <span className="inline-block w-2.5 h-2.5 bg-cyan-500/20 border border-cyan-400 rounded-sm shadow-[0_0_4px_#06b6d4]"></span>
-                      <span>選中起點</span>
+                      <span className="inline-block w-2.5 h-2.5 bg-cyan-500/20 border-2 border-cyan-400 rounded-sm shadow-[0_0_6px_#06b6d4] relative">
+                        <span className="absolute top-0 left-0 text-[5px] font-extrabold text-cyan-400 leading-none">起</span>
+                      </span>
+                      <span>選中起點 (①②③④ = 字序)</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="inline-block w-2.5 h-2.5 bg-green-500/10 border border-green-400 border-dashed rounded-sm"></span>
-                      <span>預覽合格</span>
+                      <span>預覽合格 ▶ 可放置</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 bg-red-500/10 border-2 border-red-500/60 rounded-sm"></span>
+                      <span>字元衝突</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="inline-block w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-400 rounded-sm"></span>
@@ -1291,6 +1310,7 @@ export default function Home() {
                             const cellValue = grid[rIdx][cIdx];
                             const isSelected = selectedCell?.row === rIdx && selectedCell?.col === cIdx;
                             const cellOwner = cellOwners[`${rIdx},${cIdx}`];
+                            const isLastPlaced = lastPlacedCells.has(`${rIdx},${cIdx}`);
 
                             // Nutrient details
                             const cellNutrient = nutrients.find((n) => n.r === rIdx && n.c === cIdx);
@@ -1300,6 +1320,8 @@ export default function Home() {
                             let isPreviewCell = false;
                             let previewClash = false;
                             let previewValid = false;
+                            let previewSlotIndex = -1;
+                            let isPreviewOverlap = false;
 
                             if (preview) {
                               const pCell = preview.cells.find((c) => c.r === rIdx && c.c === cIdx);
@@ -1308,18 +1330,26 @@ export default function Home() {
                                 previewChar = pCell.char;
                                 previewClash = pCell.clash;
                                 previewValid = preview.isValid;
+                                previewSlotIndex = pCell.slotIndex;
+                                isPreviewOverlap = pCell.overlap;
                               }
                             }
+
+                            const isPreviewStart = isPreviewCell && previewSlotIndex === 0;
+                            const isSelectedStart = isSelected && !isPreviewCell;
 
                             // Determine styles
                             let cellBgClass = "bg-cell-bg-default";
                             let borderClass = "border-cell-border-default";
                             let textClass = "text-cell-text-default";
-                            let shadowClass = "";
+                            let extraClass = "";
+
+                            if (isLastPlaced && cellValue) {
+                              extraClass += " place-success";
+                            }
 
                             if (cellValue) {
                               if (gameMode === "battle") {
-                                // Split styles for Player 1 & 2
                                 if (cellOwner === 1) {
                                   cellBgClass = "bg-cell-bg-p1";
                                   borderClass = "border-cell-border-p1";
@@ -1337,22 +1367,36 @@ export default function Home() {
                             } else if (isPreviewCell) {
                               if (previewClash) {
                                 cellBgClass = "bg-red-500/10";
-                                borderClass = "border-red-500/50";
+                                borderClass = "border-red-500/60 border-2";
                                 textClass = "text-red-500 font-bold";
+                                extraClass += " preview-cell-enter";
+                              } else if (isPreviewStart) {
+                                cellBgClass = "bg-cyan-500/25";
+                                borderClass = "border-cyan-400 border-2";
+                                textClass = "text-cyan-600 dark:text-cyan-300 font-extrabold";
+                                extraClass += " preview-cell-enter selected-ring-pulse";
                               } else {
                                 cellBgClass = previewValid ? "bg-green-500/15" : "bg-yellow-500/10";
-                                borderClass = previewValid 
-                                  ? "border-green-400 border-dashed" 
+                                borderClass = previewValid
+                                  ? "border-green-400 border-dashed"
                                   : "border-yellow-400 border-dashed";
-                                textClass = previewValid 
-                                  ? "text-green-600 dark:text-green-400 font-bold" 
+                                textClass = previewValid
+                                  ? "text-green-600 dark:text-green-400 font-bold"
                                   : "text-yellow-600 dark:text-yellow-400 font-bold";
+                                extraClass += " preview-cell-enter";
                               }
                             } else if (isSelected) {
                               cellBgClass = "bg-cyan-500/20";
-                              borderClass = "border-cyan-400 shadow-[0_0_8px_#06b6d4]";
+                              borderClass = "border-cyan-400 border-2";
                               textClass = "text-cyan-600 dark:text-cyan-300 font-bold";
+                              extraClass += " selected-ring-pulse";
                             }
+
+                            const animationDelay = isPreviewCell && previewSlotIndex > 0
+                              ? `${previewSlotIndex * 45}ms`
+                              : "0ms";
+
+                            const slotLabels = ["①", "②", "③", "④", "⑤"];
 
                             return (
                               <button
@@ -1360,12 +1404,54 @@ export default function Home() {
                                 type="button"
                                 disabled={gameState !== "playing"}
                                 onClick={() => setSelectedCell({ row: rIdx, col: cIdx })}
-                                className={`w-7 h-7 sm:w-10 sm:h-10 rounded flex items-center justify-center text-xs sm:text-base border transition-all duration-150 active:scale-95 ${cellBgClass} ${borderClass} ${textClass} ${shadowClass} relative select-none cursor-pointer ${
+                                style={{ animationDelay }}
+                                className={`w-7 h-7 sm:w-10 sm:h-10 rounded flex items-center justify-center text-xs sm:text-base border transition-all duration-150 active:scale-95 ${cellBgClass} ${borderClass} ${textClass}${extraClass} relative select-none cursor-pointer ${
                                   !cellValue && gameState === "playing" ? "hover:border-cyan-500/40 hover:bg-cyan-500/5" : ""
                                 }`}
                               >
-                                {cellValue || previewChar}
-                                
+                                {cellValue || (isPreviewOverlap ? cellValue || previewChar : previewChar)}
+
+                                {/* Slot-number badge on preview cells */}
+                                {isPreviewCell && !cellValue && !previewClash && (
+                                  <span
+                                    className={`absolute bottom-0 right-0 text-[7px] sm:text-[9px] font-extrabold leading-none px-[1px] rounded-tl-sm ${
+                                      isPreviewStart
+                                        ? "text-cyan-500 dark:text-cyan-300"
+                                        : previewValid
+                                        ? "text-green-500 dark:text-green-400"
+                                        : "text-yellow-500 dark:text-yellow-400"
+                                    }`}
+                                    style={{ animationDelay }}
+                                  >
+                                    {slotLabels[previewSlotIndex] ?? ""}
+                                  </span>
+                                )}
+
+                                {/* "起" badge on empty selected start cell */}
+                                {isSelectedStart && !cellValue && (
+                                  <span className="absolute top-0 left-0 text-[7px] sm:text-[9px] font-extrabold leading-none text-cyan-400 px-[1px]">
+                                    起
+                                  </span>
+                                )}
+
+                                {/* "起" badge on filled selected start cell */}
+                                {isSelected && cellValue && !isPreviewCell && (
+                                  <span className="absolute top-0 left-0 text-[7px] sm:text-[9px] font-extrabold leading-none text-cyan-400 px-[1px] bg-cyan-950/60 rounded-br-sm">
+                                    起
+                                  </span>
+                                )}
+
+                                {/* Direction arrow on 2nd preview slot */}
+                                {isPreviewCell && !cellValue && !previewClash && previewSlotIndex === 1 && (
+                                  <span
+                                    className={`absolute -top-0.5 -left-0.5 text-[6px] sm:text-[8px] font-bold leading-none direction-arrow-flow ${
+                                      previewValid ? "text-green-400" : "text-yellow-400"
+                                    }`}
+                                  >
+                                    {direction === "H" ? "▶" : "▼"}
+                                  </span>
+                                )}
+
                                 {/* Nutrient Indicator Overlay */}
                                 {!cellValue && !previewChar && cellNutrient && (
                                   <div className="absolute inset-0 flex items-center justify-center">
@@ -1388,15 +1474,21 @@ export default function Home() {
                 {/* Selected Cell Label */}
                 <div className="w-full text-center mt-3 text-xs text-text-secondary font-mono">
                   {selectedCell ? (
-                    <span>
-                      目前選中座標：
+                    <span className="flex items-center justify-center gap-2 flex-wrap">
+                      <span className="text-cyan-500">起點：</span>
                       <strong className="text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 dark:bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/20 dark:border-cyan-800/30">
-                        {COL_LABELS[selectedCell.col]}
-                        {selectedCell.row + 1}
+                        {COL_LABELS[selectedCell.col]}{selectedCell.row + 1}
                       </strong>
+                      <span className="text-text-secondary/60">•</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${direction === "H" ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"}`}>
+                        {direction === "H" ? "▶ 橫向" : "▼ 縱向"}
+                      </span>
+                      {!inputWord && (
+                        <span className="text-text-secondary/40 text-[10px]">← 輸入成語可預覽字序①②③④</span>
+                      )}
                     </span>
                   ) : (
-                    <span>請點擊地圖選擇格子以設定文字起點</span>
+                    <span className="animate-pulse">👆 點擊網格選擇格子，設定成語放置起點</span>
                   )}
                 </div>
               </section>
