@@ -165,8 +165,7 @@ export default function Home() {
         return;
       }
     }
-    setGameMode(targetMode);
-    resetGame(targetMode);
+    handleStartGame(targetMode);
   };
 
   const handleStartGame = (modeOverride?: typeof gameMode) => {
@@ -825,793 +824,916 @@ export default function Home() {
       <div style={{ opacity: 'var(--crt-opacity)' }} className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.15)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.005),rgba(0,0,255,0.01))] bg-[size:100%_4px,6px_100%] pointer-events-none z-10 transition-opacity duration-300"></div>
 
       <div className="w-full max-w-7xl flex flex-col gap-6 z-20">
-        
-        {/* --- Header & Tabs Section --- */}
-        <header className="flex flex-col gap-4 border-b border-header-border pb-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex flex-col text-center md:text-left">
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(236,72,153,0.15)] dark:drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">
-                成語阿米巴
-              </h1>
-              <p className="text-xs text-text-secondary mt-1 uppercase tracking-widest font-mono">
-                // Cyberpunk Grid Connection Game //
-              </p>
-            </div>
-
-            {/* Mode & Theme Selectors */}
-            <div className="flex items-center gap-3 flex-wrap justify-center">
-              {/* Mode Selectors */}
-              <div className="flex bg-input-bg border border-panel-border/30 p-1 rounded-xl shadow-inner gap-1 transition-all duration-300">
-                <button
-                  onClick={() => handleSwitchMode("free")}
-                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    gameMode === "free"
-                      ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                >
-                  自由模式
-                </button>
-                <button
-                  onClick={() => handleSwitchMode("challenge")}
-                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    gameMode === "challenge"
-                      ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                >
-                  積分挑戰
-                </button>
-                <button
-                  onClick={() => handleSwitchMode("battle")}
-                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    gameMode === "battle"
-                      ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                >
-                  雙人對決
-                </button>
+        {gameState === "idle" ? (
+          <div className="flex flex-col gap-8 w-full max-w-6xl mx-auto py-6 sm:py-10 animate-fade-in">
+            {/* Header / Title */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-header-border pb-6">
+              <div className="flex flex-col text-center md:text-left">
+                <h1 className="text-4xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(236,72,153,0.2)] dark:drop-shadow-[0_0_15px_rgba(236,72,153,0.4)]">
+                  成語阿米巴
+                </h1>
+                <p className="text-sm text-text-secondary mt-2 uppercase tracking-widest font-mono font-bold">
+                  // Cyberpunk Chinese Idiom Grid Game //
+                </p>
               </div>
 
-              {/* Theme Toggle Switch */}
+              {/* Theme Toggle switch */}
               <button
                 onClick={toggleTheme}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-input-bg border border-panel-border/35 text-text-primary hover:scale-[1.03] active:scale-[0.97] transition-all shadow-[0_2px_10px_rgba(0,0,0,0.05)] cursor-pointer font-bold text-xs"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-input-bg border border-panel-border text-text-primary hover:scale-[1.03] active:scale-[0.97] transition-all shadow-[0_4px_15px_rgba(0,0,0,0.08)] cursor-pointer font-extrabold text-sm"
                 title={theme === "dark" ? "切換至白天模式" : "切換至黑夜模式"}
               >
                 {theme === "dark" ? (
                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-amber-400 animate-[spin_10s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-400 animate-[spin_10s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
                     </svg>
-                    <span>白天</span>
+                    <span>白天模式 (Light)</span>
                   </>
                 ) : (
                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
-                    <span>黑夜</span>
+                    <span>黑夜模式 (Dark)</span>
                   </>
                 )}
               </button>
             </div>
 
-            {/* Scoreboards depending on mode */}
-            {gameMode !== "battle" ? (
-              /* Solo Scoreboard */
-              <div className="flex items-center gap-4">
-                <div className="bg-input-bg border border-cyan-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(6,182,212,0.05)] transition-all duration-300">
-                  <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-bold uppercase tracking-widest font-mono">Score</span>
-                  <span className="text-2xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.2)] dark:drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]">
-                    {String(scores.p1).padStart(5, "0")}
-                  </span>
-                </div>
-                {gameMode === "challenge" && (
-                  <div className="bg-input-bg border border-emerald-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(16,185,129,0.05)] animate-pulse transition-all duration-300">
-                    <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest font-mono">Time Left</span>
-                    <span className={`text-2xl font-mono font-black ${timeLeft <= 15 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-300"} drop-shadow-[0_0_6px_rgba(52,211,153,0.2)]`}>
-                      {timeLeft}s
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Two Player Battle Scoreboard */
-              <div className="flex items-center gap-4">
-                {/* P1 Scoreboard */}
-                <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[100px] transition-all duration-300 ${
-                  currentPlayer === 1 && gameState === "playing"
-                    ? "border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)] scale-105"
-                    : "border-cyan-500/20 opacity-60"
-                }`}>
-                  <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-bold uppercase tracking-widest font-mono">P1 藍阿米巴</span>
-                  <span className="text-xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_4px_rgba(34,211,238,0.3)]">
-                    {String(scores.p1).padStart(5, "0")}
-                  </span>
-                </div>
-
-                {/* Turn countdown bar */}
-                <div className="flex flex-col items-center min-w-[60px]">
-                  <span className="text-[9px] text-text-secondary font-bold uppercase tracking-widest font-mono">Turn Time</span>
-                  <span className={`text-lg font-mono font-bold ${timeLeft <= 5 ? "text-red-500 animate-ping" : "text-text-primary"}`}>
-                    {timeLeft}s
-                  </span>
-                </div>
-
-                {/* P2 Scoreboard */}
-                <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[100px] transition-all duration-300 ${
-                  currentPlayer === 2 && gameState === "playing"
-                    ? "border-pink-400 shadow-[0_0_12px_rgba(244,63,94,0.3)] scale-105"
-                    : "border-pink-500/20 opacity-60"
-                }`}>
-                  <span className="text-[9px] text-pink-600 dark:text-pink-400 font-bold uppercase tracking-widest font-mono">P2 粉阿米巴</span>
-                  <span className="text-xl font-mono font-black text-pink-600 dark:text-pink-300 drop-shadow-[0_0_4px_rgba(244,63,94,0.3)]">
-                    {String(scores.p2).padStart(5, "0")}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Mode Banner Description */}
-          <div className="text-[11px] text-text-secondary font-mono flex items-center gap-1.5 px-2 bg-panel-bg/40 py-1.5 rounded border border-panel-border/30">
-            <span>// CURRENT_MODE:</span>
-            <span className="text-purple-600 dark:text-purple-400 font-bold uppercase">
-              {gameMode === "free" ? "Free Play" : gameMode === "challenge" ? "Score Challenge" : "Two-Player Local Battle"}
-            </span>
-            <span>•</span>
-            <span>
-              {gameMode === "free"
-                ? "自由練習，可隨時放置且無時間限制。"
-                : gameMode === "challenge"
-                ? "限時 90 秒爭取最高分，吃掉【⏰ 綠色時鐘】可延長 10 秒時間！"
-                : "雙人回合輪流出牌，佔領對手重疊的格子可獲得額外掠奪分（+150/格）！"}
-            </span>
-          </div>
-        </header>
-
-        {/* --- Main Dashboard --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* LEFT: Game Board Grid Container (8 Cols) */}
-          <section className="lg:col-span-8 bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 sm:p-6 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center relative transition-all duration-300">
-            {/* Game Over Screen Overlay */}
-            {gameState === "gameover" && (
-              <div className="absolute inset-0 bg-background/95 backdrop-blur-md rounded-2xl z-30 flex flex-col items-center justify-center p-6 border border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.15)] dark:shadow-[0_0_40px_rgba(239,68,68,0.3)] transition-all duration-300">
-                <h2 className="text-3xl font-black text-red-500 tracking-wider mb-2 animate-pulse drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
-                  GAME OVER
-                </h2>
-                <p className="text-xs text-text-secondary uppercase tracking-widest font-mono mb-6">
-                  {gameMode === "free" ? "// 您已選擇放棄此局 //" : gameMode === "challenge" ? "// 挑戰時間截止 //" : "// 雙方回合棄權或玩家認輸 //"}
-                </p>
-
-                <div className="bg-input-bg border border-panel-border/40 rounded-xl p-6 flex flex-col items-center gap-4 min-w-[280px] mb-8 shadow-2xl transition-all duration-300">
-                  {gameMode !== "battle" ? (
-                    <>
-                      <span className="text-xs text-text-secondary">最終獲得積分</span>
-                      <span className="text-4xl font-mono font-black text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
-                        {scores.p1} 分
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-xs text-text-secondary">對決獲勝方</span>
-                      <span className={`text-2xl font-black text-center ${getWinnerInfo().style}`}>
-                        {getWinnerInfo().text}
-                      </span>
-                      <div className="grid grid-cols-2 gap-4 w-full border-t border-input-border pt-4 mt-2 text-center text-xs font-mono">
-                        <div>
-                          <div className="text-cyan-600 dark:text-cyan-400">藍阿米巴 P1</div>
-                          <div className="text-lg font-bold text-text-primary mt-1">{scores.p1}</div>
-                        </div>
-                        <div>
-                          <div className="text-pink-600 dark:text-pink-400">粉阿米巴 P2</div>
-                          <div className="text-lg font-bold text-text-primary mt-1">{scores.p2}</div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => resetGame(gameMode)}
-                    className="px-6 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white cursor-pointer active:scale-95 hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] transition-all"
-                  >
-                    再次挑戰
-                  </button>
-                  <button
-                    onClick={() => handleSwitchMode("free")}
-                    className="px-6 py-2.5 rounded-lg font-bold text-sm bg-input-bg hover:bg-panel-bg border border-input-border text-text-primary cursor-pointer active:scale-95 transition-all"
-                  >
-                    返回自由模式
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Start Game Screen Overlay */}
-            {gameState === "idle" && (
-              <div className="absolute inset-0 bg-background/95 backdrop-blur-md rounded-2xl z-30 flex flex-col items-center justify-center p-6 border border-panel-border shadow-[0_0_40px_rgba(139,92,246,0.1)] dark:shadow-[0_0_40px_rgba(139,92,246,0.25)] transition-all duration-300">
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 tracking-wider mb-2 drop-shadow-[0_0_8px_rgba(168,85,247,0.15)] dark:drop-shadow-[0_0_8px_rgba(168,85,247,0.3)]">
-                  {gameMode === "free" ? "自由練習模式" : gameMode === "challenge" ? "積分挑戰模式" : "雙人對決模式"}
-                </h2>
-                <p className="text-xs text-text-secondary uppercase tracking-widest font-mono mb-6">
-                  {gameMode === "free" ? "// Free Play Practice Mode //" : gameMode === "challenge" ? "// 90s Score Challenge //" : "// Local 1v1 turn battle //"}
-                </p>
-
-                <div className="bg-input-bg border border-panel-border/30 rounded-xl p-5 max-w-md text-xs text-text-secondary leading-relaxed flex flex-col gap-3 mb-8 shadow-inner transition-all duration-300">
-                  <span className="font-bold text-text-primary text-sm flex items-center gap-1.5 border-b border-input-border pb-1.5">
-                    <span>🎯 模式規則說明</span>
-                  </span>
-                  {gameMode === "free" && (
-                    <ul className="list-disc list-inside flex flex-col gap-1.5">
-                      <li>沒有時間限制與積分扣除壓力。</li>
-                      <li>可以用來熟悉網格座標和接龍排列。</li>
-                      <li>地圖上會生成【♦ 積分養分點】，覆蓋可獲得額外 <strong>+200 分</strong>。</li>
-                      <li>卡關時可隨時點擊【💡 求助提示】，將自動為您填寫可行解！</li>
-                      <li>點擊下方【重設】或【放棄此局】即可隨時結算分數重新開始。</li>
-                    </ul>
-                  )}
-                  {gameMode === "challenge" && (
-                    <ul className="list-disc list-inside flex flex-col gap-1.5">
-                      <li>限制時間 <strong>90 秒</strong>，倒數結束則結算積分。</li>
-                      <li>地圖會生成【⏰ 時間能量點】，覆蓋可增加 <strong>+10 秒</strong>！</li>
-                      <li>地圖會生成【♦ 積分養分點】，覆蓋可獲得額外 <strong>+200 分</strong>。</li>
-                      <li>重疊多個字可以獲得 Combo 倍增積分（Double/Fusion Link）！</li>
-                      <li>卡關可使用【💡 求助提示】，每次將從得分中扣除 <strong>50 分</strong>。</li>
-                    </ul>
-                  )}
-                  {gameMode === "battle" && (
-                    <ul className="list-disc list-inside flex flex-col gap-1.5">
-                      <li><strong>回合制對抗</strong>：藍色阿米巴 (P1) vs 粉色阿米巴 (P2)。</li>
-                      <li><strong>回合時間 30 秒</strong>，逾時將自動棄權更換下位玩家。</li>
-                      <li>若擺放重疊了對手的字元，可奪取領地並額外加 <strong>+150 分</strong>！</li>
-                      <li>己方回合若卡關可使用【💡 求助提示】，每次使用扣除 <strong>50 分</strong>。</li>
-                      <li>兩位玩家連續棄權，或者有一方點擊【🏳️ 認輸】，遊戲即告結束。</li>
-                    </ul>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => handleStartGame()}
-                  className="px-8 py-3 rounded-xl font-extrabold text-sm bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:opacity-90 text-white cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)]"
-                >
-                  開始遊戲 (START GAME)
-                </button>
-              </div>
-            )}
-
-            {/* Grid legends */}
-            <div className="w-full flex items-center justify-between text-xs text-text-secondary mb-4 px-2">
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 bg-cyan-500/20 border border-cyan-400 rounded-sm shadow-[0_0_4px_#06b6d4]"></span>
-                  <span>選中起點</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 bg-green-500/10 border border-green-400 border-dashed rounded-sm"></span>
-                  <span>預覽合格</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-400 rounded-sm"></span>
-                  <span>♦ 積分養分</span>
-                </div>
-                {gameMode === "challenge" && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-block w-2.5 h-2.5 bg-amber-500/20 border border-amber-400 rounded-sm"></span>
-                    <span>⏰ 時間養分 (+10s)</span>
-                  </div>
-                )}
-              </div>
-
-              {isGridEmpty() && gameState === "playing" && (
-                <button
-                  onClick={handlePlaceRandomStarter}
-                  className="px-3 py-1.5 rounded bg-btn-primary-bg/10 hover:bg-btn-primary-bg/20 border border-btn-primary-bg/30 text-btn-primary-bg dark:text-purple-200 transition-all font-semibold active:scale-95 text-xs flex items-center gap-1.5 hover:shadow-[0_0_10px_rgba(168,85,247,0.2)] cursor-pointer"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-btn-primary-bg animate-ping"></span>
-                  隨機擺放首詞
-                </button>
-              )}
-            </div>
-
-            {/* Scrollable grid wrapper */}
-            <div className="w-full overflow-x-auto pb-2 flex justify-start md:justify-center relative">
-              <div className="min-w-[500px] select-none p-1.5">
-                <div
-                  className="grid gap-1 bg-input-bg/70 p-2.5 rounded-xl border border-input-border shadow-[0_0_20px_rgba(139,92,246,0.02)] dark:shadow-[0_0_20px_rgba(139,92,246,0.05)] relative transition-all duration-300"
-                  style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
-                >
-                  {/* Grid Column Headers */}
-                  <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center"></div>
-                  {COL_LABELS.map((colName) => (
-                    <div
-                      key={colName}
-                      className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-[10px] sm:text-xs font-bold text-text-secondary font-mono tracking-wider"
-                    >
-                      {colName}
-                    </div>
-                  ))}
-
-                  {/* Grid Rows */}
-                  {Array.from({ length: 15 }).map((_, rIdx) => (
-                    <React.Fragment key={rIdx}>
-                      {/* Row Label */}
-                      <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-[10px] sm:text-xs font-bold text-text-secondary font-mono">
-                        {rIdx + 1}
-                      </div>
-
-                      {/* 15 Cells */}
-                      {Array.from({ length: 15 }).map((_, cIdx) => {
-                        const cellValue = grid[rIdx][cIdx];
-                        const isSelected = selectedCell?.row === rIdx && selectedCell?.col === cIdx;
-                        const cellOwner = cellOwners[`${rIdx},${cIdx}`];
-
-                        // Nutrient details
-                        const cellNutrient = nutrients.find((n) => n.r === rIdx && n.c === cIdx);
-
-                        // Preview state variables
-                        let previewChar = "";
-                        let isPreviewCell = false;
-                        let previewClash = false;
-                        let previewValid = false;
-
-                        if (preview) {
-                          const pCell = preview.cells.find((c) => c.r === rIdx && c.c === cIdx);
-                          if (pCell) {
-                            isPreviewCell = true;
-                            previewChar = pCell.char;
-                            previewClash = pCell.clash;
-                            previewValid = preview.isValid;
-                          }
-                        }
-
-                        // Determine styles
-                        let cellBgClass = "bg-cell-bg-default";
-                        let borderClass = "border-cell-border-default";
-                        let textClass = "text-cell-text-default";
-                        let shadowClass = "";
-
-                        if (cellValue) {
-                          if (gameMode === "battle") {
-                            // Split styles for Player 1 & 2
-                            if (cellOwner === 1) {
-                              cellBgClass = "bg-cell-bg-p1";
-                              borderClass = "border-cell-border-p1";
-                              textClass = "text-cell-text-p1 font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
-                            } else {
-                              cellBgClass = "bg-cell-bg-p2";
-                              borderClass = "border-cell-border-p2";
-                              textClass = "text-cell-text-p2 font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
-                            }
-                          } else {
-                            // Default styling for solo modes (purple/pink)
-                            cellBgClass = "bg-cell-bg-filled";
-                            borderClass = "border-cell-border-filled";
-                            textClass = "text-cell-text-filled font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
-                          }
-                        }
-
-                        // Overlay Preview State
-                        if (isPreviewCell) {
-                          if (previewClash) {
-                            cellBgClass = "bg-red-500/20";
-                            borderClass = "border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]";
-                            textClass = "text-red-400 font-bold";
-                          } else {
-                            cellBgClass = previewValid ? "bg-green-500/10" : "bg-zinc-500/10";
-                            borderClass = previewValid
-                              ? "border-green-400 border-dashed animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.3)]"
-                              : "border-yellow-500 border-dashed";
-                            textClass = previewValid ? "text-green-500 dark:text-green-400 font-bold" : "text-yellow-600 dark:text-yellow-400";
-                          }
-                        }
-
-                        // Overlay Selection State
-                        if (isSelected) {
-                          borderClass = "border-cyan-400 ring-2 ring-cyan-500/20 scale-102";
-                          shadowClass = "shadow-[0_0_12px_#06b6d4]";
-                          if (!cellValue && !isPreviewCell) {
-                            cellBgClass = "bg-cyan-500/10";
-                          }
-                        }
-
-                        return (
-                          <button
-                            key={cIdx}
-                            disabled={gameState !== "playing"}
-                            onClick={() => setSelectedCell({ row: rIdx, col: cIdx })}
-                            className={`w-7 h-7 sm:w-10 sm:h-10 text-sm sm:text-base border flex items-center justify-center rounded transition-all duration-200 relative cursor-pointer outline-none hover:scale-[1.08] hover:z-10 hover:border-cyan-500 dark:hover:border-cyan-400 hover:shadow-[0_0_8px_var(--glow-color)] active:scale-[0.93] ${cellBgClass} ${borderClass} ${textClass} ${shadowClass}`}
-                            title={`座標: ${COL_LABELS[cIdx]}${rIdx + 1}`}
-                          >
-                            {cellValue || previewChar ? (
-                              cellValue || previewChar
-                            ) : cellNutrient ? (
-                              // Render Nutrient Cell Inside Grid
-                              cellNutrient.type === "points" ? (
-                                <span className="text-[9px] font-black text-emerald-500 dark:text-emerald-400 animate-pulse tracking-tighter drop-shadow-[0_0_4px_#34d399] flex flex-col items-center">
-                                  <span>♦</span>
-                                  <span className="scale-75 mt-[-3px] font-mono font-bold">+200</span>
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-black text-amber-500 dark:text-amber-400 animate-pulse tracking-tighter drop-shadow-[0_0_4px_#fbbf24] flex flex-col items-center">
-                                  <span>⏰</span>
-                                  <span className="scale-75 mt-[-3px] font-mono font-bold">+10s</span>
-                                </span>
-                              )
-                            ) : (
-                              ""
-                            )}
-                            
-                            {/* Tiny coordinate label indicator */}
-                            <span className="absolute bottom-0 right-0 text-[6px] text-zinc-500/30 dark:text-zinc-800 pointer-events-none scale-75 select-none font-mono">
-                              {COL_LABELS[cIdx]}{rIdx + 1}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Selected Cell Label */}
-            <div className="w-full text-center mt-3 text-xs text-text-secondary font-mono">
-              {selectedCell ? (
-                <span>
-                  目前選中座標：
-                  <strong className="text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 dark:bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/20 dark:border-cyan-800/30">
-                    {COL_LABELS[selectedCell.col]}
-                    {selectedCell.row + 1}
-                  </strong>
-                </span>
-              ) : (
-                <span>請點擊地圖選擇格子以設定文字起點</span>
-              )}
-            </div>
-          </section>
-
-          {/* RIGHT: Game Controls Panel (4 Cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            
-            {/* Control Panel Card */}
-            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-4 transition-all duration-300">
-              <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-purple-600 dark:from-cyan-400 dark:to-purple-400 flex items-center justify-between border-b border-input-border pb-2">
-                <span className="flex items-center gap-2">
-                  <span>控制面板</span>
-                  {gameMode === "battle" && (
-                    <span className={`text-xs px-2 py-0.5 rounded font-bold ${
-                      currentPlayer === 1 ? "bg-cyan-500/20 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400" : "bg-pink-500/20 text-pink-700 dark:bg-pink-950 dark:text-pink-400"
-                    }`}>
-                      P{currentPlayer} 回合
-                    </span>
-                  )}
-                </span>
-                <span className="text-[10px] text-text-secondary font-mono">CONTROL PANEL</span>
-              </h2>
-
-              <div className="flex flex-col gap-3">
-                
-                {/* 4-Letter Word Input */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-text-secondary font-semibold flex justify-between">
-                    <span>輸入 4-5 字成語</span>
-                    {selectedCell && (
-                      <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-bold">
-                        起點: {COL_LABELS[selectedCell.col]}{selectedCell.row + 1}
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={5}
-                    value={inputWord}
-                    disabled={gameState !== "playing"}
-                    onChange={(e) => setInputWord(e.target.value.trim())}
-                    placeholder="請輸入四字成語..."
-                    className="bg-input-bg border border-input-border hover:border-panel-border focus:border-cyan-500 dark:focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_8px_rgba(34,211,238,0.15)] rounded-lg px-3.5 py-2 text-sm text-text-primary transition-all font-medium placeholder-text-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Direction Switch */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-xs text-text-secondary font-semibold">排版排列方向</span>
-                  <div className="grid grid-cols-2 gap-2 bg-input-bg/50 p-1 rounded-lg border border-input-border">
-                    <button
-                      type="button"
-                      disabled={gameState !== "playing"}
-                      onClick={() => setDirection("H")}
-                      className={`py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer ${
-                        direction === "H"
-                          ? "bg-cyan-500/15 dark:bg-cyan-950/60 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.1)]"
-                          : "text-text-secondary hover:text-text-primary"
-                      }`}
-                    >
-                      <span>── 橫向排列</span>
-                      <span className="text-[9px] font-normal px-1 rounded bg-input-bg border border-input-border text-text-secondary">H</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={gameState !== "playing"}
-                      onClick={() => setDirection("V")}
-                      className={`py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer ${
-                        direction === "V"
-                          ? "bg-cyan-500/15 dark:bg-cyan-950/60 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.1)]"
-                          : "text-text-secondary hover:text-text-primary"
-                      }`}
-                    >
-                      <span>│ 縱向排列</span>
-                      <span className="text-[9px] font-normal px-1 rounded bg-input-bg border border-input-border text-text-secondary">V</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePlaceIdiom()}
-                    disabled={!selectedCell || !inputWord || preview?.isValid === false || gameState !== "playing"}
-                    className={`py-2.5 rounded-lg font-bold text-sm transition-all duration-200 cursor-pointer active:scale-97 select-none border ${
-                      !selectedCell || !inputWord || gameState !== "playing"
-                        ? "bg-input-bg border-input-border text-text-secondary/40 cursor-not-allowed"
-                        : preview?.isValid === false
-                        ? "bg-red-500/10 border-red-500/30 text-red-500 cursor-not-allowed"
-                        : gameMode === "battle"
-                        ? currentPlayer === 1
-                          ? "bg-cyan-500 hover:bg-cyan-400 text-black border-transparent shadow-[0_0_15px_rgba(6,182,212,0.3)] font-extrabold"
-                          : "bg-pink-500 hover:bg-pink-400 text-black border-transparent shadow-[0_0_15px_rgba(244,63,94,0.3)] font-extrabold"
-                        : "bg-btn-primary-bg hover:opacity-90 text-btn-primary-text border-transparent shadow-[0_0_15px_var(--glow-color)] font-extrabold"
-                    }`}
-                  >
-                    {preview?.isValid === false ? "規則限制無法放置" : "放置成語"}
-                  </button>
-
-                  {/* Pass Turn Button (Battle Mode Only) */}
-                  {gameMode === "battle" && gameState === "playing" && (
-                    <button
-                      type="button"
-                      onClick={handlePassTurn}
-                      className="py-1.5 rounded-lg font-semibold text-xs bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
-                    >
-                      棄權 / 換下一位 (Pass)
-                    </button>
-                  )}
-
-                  {/* Hint & Give Up Buttons */}
-                  {gameState === "playing" && (
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <button
-                        type="button"
-                        onClick={handleGetHint}
-                        disabled={loadingDict || (gameMode !== "free" && (currentPlayer === 1 ? scores.p1 : scores.p2) < 50)}
-                        className="py-1.5 rounded-lg font-semibold text-[11px] bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-                        title="獲取一個接龍字詞提示，每次使用扣除 50 分"
-                      >
-                        <span>💡 求助提示</span>
-                        <span className="scale-90 font-mono text-[9px] opacity-75">-50pt</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleGiveUp}
-                        className="py-1.5 rounded-lg font-semibold text-[11px] bg-input-bg border border-red-500/20 text-red-500 hover:bg-red-500/10 active:scale-97 transition-all cursor-pointer flex items-center justify-center gap-1"
-                      >
-                        <span>🏳️ {gameMode === "battle" ? "認輸" : "放棄此局"}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Real-time Rule Check Alert Box */}
-              {preview && (
-                <div
-                  className={`p-3 rounded-lg border text-xs leading-relaxed flex flex-col gap-1 transition-all ${
-                    preview.isValid
-                      ? "bg-green-500/10 dark:bg-green-950/20 border-green-500/20 dark:border-green-800/40 text-green-700 dark:text-green-400"
-                      : "bg-red-500/10 dark:bg-red-950/20 border-red-500/20 dark:border-red-800/40 text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  <span className="font-bold font-mono">
-                    {preview.isValid ? "✓ 擺放檢測合格" : "✗ 擺放檢測不符"}
-                  </span>
-                  {inputWord.trim().length !== 4 && inputWord.trim().length !== 5 && (
-                    <span>・字數必須為 4 或 5 個字（目前為 {inputWord.trim().length} 字）。</span>
-                  )}
-                  {preview.hasNonChinese && <span>・成語必須全部為中文漢字。</span>}
-                  {!preview.inBounds && <span>・部分字元會超出網格邊界。</span>}
-                  {preview.hasClash && <span>・與網格現存的字元發生衝突。</span>}
-                  {!preview.isGridEmpty && !preview.hasOverlap && (
-                    <span>・必須與現存字元重疊（阿米巴規則）。</span>
-                  )}
-                  {!loadingDict && !preview.isDictValid && (
-                    <span>・「{inputWord.trim()}」非成語庫中之有效成語。</span>
-                  )}
-                  {loadingDict && (
-                    <span className="text-yellow-600 dark:text-yellow-500 animate-pulse">・成語庫載入中，載入完成後將啟用嚴格驗證。</span>
-                  )}
-                  {preview.isValid && (
-                    <span>・按一下放置按鈕將單詞寫入網格。</span>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {/* Idiom Details Card (dynamic) */}
-            {selectedCellIdioms.length > 0 && (
-              <section className="bg-panel-bg backdrop-blur-md border border-cyan-500/30 rounded-2xl p-5 shadow-[0_0_25px_rgba(6,182,212,0.06)] dark:shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col gap-4 transition-all duration-300">
-                <h2 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 flex items-center justify-between border-b border-input-border pb-2">
-                  <span className="flex items-center gap-2">
-                    <span>🔍 成語詳細解析</span>
-                  </span>
-                  <span className="text-[10px] text-text-secondary font-mono">IDIOM DETAILS</span>
-                </h2>
-
-                <div className="flex flex-col gap-4 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
-                  {selectedCellIdioms.map((item) => {
-                    const details = idiomsDetails[item.word];
-                    const isPlayer1 = item.player === 1;
-                    
-                    return (
-                      <div key={item.id} className="border-b border-input-border pb-4 last:border-0 last:pb-0 flex flex-col gap-2">
-                        {/* Word and player badge */}
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-xl font-extrabold text-pink-600 dark:text-pink-400 tracking-wider drop-shadow-[0_0_6px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.3)]">
-                            {item.word}
-                          </h3>
-                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                            item.player === 1 
-                              ? "bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 dark:bg-cyan-950/80 dark:text-cyan-400 dark:border-cyan-500/20" 
-                              : "bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20"
-                          }`}>
-                            {gameMode === "battle"
-                              ? isPlayer1 ? "藍色阿米巴 Placed" : "粉色阿米巴 Placed"
-                              : "玩家放置"}
-                          </span>
-                        </div>
-
-                        {/* Pinyin */}
-                        {details ? (
-                          <div className="text-xs font-mono text-text-secondary font-semibold bg-input-bg px-2 py-1 rounded w-fit border border-input-border">
-                            {details.pinyin || "拼音未收錄"}
-                          </div>
-                        ) : (
-                          <div className="text-xs font-mono text-text-secondary/60 italic">
-                            拼音載入中...
-                          </div>
-                        )}
-
-                        {/* Explanation */}
-                        <div className="flex flex-col gap-1 mt-1">
-                          <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">釋義 Explanation</span>
-                          <p className="text-xs text-text-primary leading-relaxed font-medium bg-input-bg/40 p-2 rounded border border-input-border/60">
-                            {details ? details.explanation || "釋義未收錄" : "詳細釋義載入中..."}
-                          </p>
-                        </div>
-
-                        {/* Derivation / Origin */}
-                        {details && details.derivation && (
-                          <div className="flex flex-col gap-1 mt-1">
-                            <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">典故 Origin</span>
-                            <p className="text-[11px] text-text-secondary leading-relaxed bg-input-bg/20 p-2 rounded border border-input-border/30">
-                              {details.derivation}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Score and Placement Details */}
-                        <div className="flex justify-between items-center text-[10px] text-text-secondary font-mono mt-1 bg-input-bg/30 px-2 py-1 rounded">
-                          <span>獲得分數: <strong className="text-cyan-600 dark:text-cyan-400">+{item.score}分</strong></span>
-                          <span>擺放方向: {item.direction === "H" ? "橫向" : "縱向"}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Gameplay instructions card */}
-            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 transition-all duration-300">
-              <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest font-mono border-b border-input-border pb-1.5 flex justify-between items-center">
-                <span>遊戲玩法說明</span>
-                <span className="text-[9px] text-text-secondary">HOW TO PLAY</span>
-              </h3>
-              <ul className="text-[11px] text-text-secondary leading-relaxed list-disc list-inside flex flex-col gap-1.5">
-                <li><strong>起點格</strong>：為成語<strong>第一個字</strong>的位置。</li>
-                <li>
-                  <strong>阿米巴擴充</strong>：新成語必須與已有成語相交重疊。
-                  <span className="text-purple-600 dark:text-purple-400 font-semibold block mt-0.5 pl-4">
-                    串聯多重重疊，會觸發 Combo 翻倍計分！
-                  </span>
-                </li>
-                <li><strong>養分細胞點 (♦)</strong>：擺放成語若覆蓋地圖上的養分點，可額外獲得 <strong>+200分</strong>，挑戰模式更有 <strong>+10秒⏰</strong> 時鐘！</li>
-                {gameMode === "battle" && (
-                  <li>
-                    <strong>雙人掠奪規則</strong>：玩家輪流在 30 秒內出牌。若與對手所屬的文字重疊，可掠奪該領地並獲得額外 <strong>+150 掠奪點</strong>！
-                  </li>
-                )}
-              </ul>
-            </section>
-
-            {/* Presets and Helpers */}
-            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 transition-all duration-300">
-              <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest font-mono border-b border-input-border pb-1.5 flex justify-between items-center">
-                <span>測試預設字庫</span>
-                <span className="text-[9px] text-text-secondary">PRESETS</span>
-              </h3>
-              <p className="text-[11px] text-text-secondary leading-normal">
-                點擊下方成語，可快速填入上方文字欄：
-              </p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {PRESET_IDIOMS.map((idiom) => (
-                  <button
-                    key={idiom}
-                    disabled={gameState !== "playing"}
-                    onClick={() => setInputWord(idiom)}
-                    className="px-2 py-1 rounded bg-input-bg hover:bg-btn-primary-bg/10 border border-input-border hover:border-btn-primary-bg/35 text-xs text-text-primary transition-all font-mono disabled:opacity-50 cursor-pointer"
-                  >
-                    {idiom}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* Utility Reset Button */}
-            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 transition-all duration-300">
-              <button
-                onClick={handleClearBoard}
-                className="w-full py-1.5 rounded bg-input-bg hover:bg-red-500/10 border border-input-border hover:border-red-500/30 text-xs text-text-secondary hover:text-red-500 dark:hover:text-red-400 transition-all font-semibold active:scale-98 cursor-pointer"
+            {/* Mode Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Card 1: Free Mode */}
+              <div 
+                onClick={() => handleStartGame("free")}
+                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] dark:hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:border-emerald-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
               >
-                重設當前遊戲進度 (Reset)
-              </button>
-            </section>
-          </div>
-        </div>
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-4xl">🍀</span>
+                    <span className="text-[10px] font-bold font-mono tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      FREE PLAY
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-black text-text-primary mb-1">自由練習模式</h3>
+                  <p className="text-xs text-text-secondary font-mono mb-4">// 無壓力成語接龍練習 //</p>
+                  
+                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">無時間限制</strong>：可以從容不迫地思考，無須緊繃，適合放鬆遊玩。</li>
+                    <li><strong className="text-text-primary">免費提示</strong>：卡關時點擊提示不扣除任何分數，自動為您填字。</li>
+                    <li><strong className="text-text-primary">積分養分點</strong>：地圖隨機生成積分點（♦），覆蓋可獲 <strong>+200分</strong>。</li>
+                    <li>可以用來熟悉網格座標和接龍排列，練習成語庫。</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartGame("free");
+                  }}
+                  className="w-full py-3.5 rounded-xl font-black text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.25)] flex items-center justify-center gap-1"
+                >
+                  <span>開始自由練習</span>
+                  <span>➜</span>
+                </button>
+              </div>
 
-        {/* --- BOTTOM SECTION: System logs & History logs --- */}
-        <footer className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
-          
-          {/* History Panel */}
-          <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-h-[220px] transition-all duration-300">
-            <h2 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 dark:from-pink-400 dark:to-purple-400 flex justify-between items-center border-b border-input-border pb-2">
-              <span>成語接龍履歷</span>
-              <span className="text-[10px] text-text-secondary font-mono">HISTORY LOG ({history.length})</span>
-            </h2>
-            <div className="flex-1 overflow-y-auto max-h-[200px] flex flex-col gap-2 pr-1 custom-scrollbar">
-              {history.length === 0 ? (
-                <div className="text-xs text-text-secondary text-center py-10 font-mono">// NO HISTORY FOUND //</div>
-              ) : (
-                history.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className={`flex justify-between items-center text-xs bg-input-bg/50 border rounded px-3 py-1.5 transition-all ${
-                      gameMode === "battle"
-                        ? item.player === 1
-                          ? "border-cyan-500/20 hover:border-cyan-500/40"
-                          : "border-pink-500/20 hover:border-pink-500/40"
-                        : "border-input-border hover:border-panel-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-text-secondary font-mono w-5">#{history.length - index}</span>
-                      <strong className={`tracking-wide text-sm font-bold ${
+              {/* Card 2: Challenge Mode */}
+              <div 
+                onClick={() => handleStartGame("challenge")}
+                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(245,158,11,0.15)] dark:hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:border-amber-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-4xl">⚡</span>
+                    <span className="text-[10px] font-bold font-mono tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      CHALLENGE
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-black text-text-primary mb-1">積分挑戰模式</h3>
+                  <p className="text-xs text-text-secondary font-mono mb-4">// 限時 90s 的高分大作戰 //</p>
+                  
+                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">限時 90 秒</strong>：爭分奪秒！倒數結束將自動結算最終成績。</li>
+                    <li><strong className="text-text-primary">時間能量點</strong>：吃掉地圖上的時鐘養分（⏰）可增加 <strong>+10秒</strong>！</li>
+                    <li><strong className="text-text-primary">提示扣除分數</strong>：使用求助提示每次將扣除 <strong>50分</strong>。</li>
+                    <li><strong className="text-text-primary">Combo 翻倍</strong>：重疊多個漢字將獲得 Combo 連鎖加分！</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartGame("challenge");
+                  }}
+                  className="w-full py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-1"
+                >
+                  <span>挑戰高分極限</span>
+                  <span>➜</span>
+                </button>
+              </div>
+
+              {/* Card 3: Battle Mode */}
+              <div 
+                onClick={() => handleStartGame("battle")}
+                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(236,72,153,0.15)] dark:hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] hover:border-pink-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-4xl">⚔️</span>
+                    <span className="text-[10px] font-bold font-mono tracking-widest text-pink-600 dark:text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20">
+                      LOCAL PVP
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-black text-text-primary mb-1">雙人對決模式</h3>
+                  <p className="text-xs text-text-secondary font-mono mb-4">// 同屏 1v1 回合制智力對抗 //</p>
+                  
+                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">回合制輪流</strong>：藍阿米巴 (P1) vs 粉阿米巴 (P2) 回合對戰。</li>
+                    <li><strong className="text-text-primary">30 秒單回限時</strong>：超時則該回合棄權並換下位玩家。</li>
+                    <li><strong className="text-text-primary">領地掠奪</strong>：重疊對手的文字會將該領地奪過來，外加 <strong>+150 掠奪分</strong>！</li>
+                    <li>連續棄權或有人認輸則遊戲結束，結算最終勝者。</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartGame("battle");
+                  }}
+                  className="w-full py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(236,72,153,0.25)] flex items-center justify-center gap-1"
+                >
+                  <span>開啟對決大戰</span>
+                  <span>➜</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Core Rules Section */}
+            <div className="bg-panel-bg backdrop-blur-md border border-panel-border/40 rounded-2xl p-6 sm:p-8 shadow-[2px_4px_30px_rgba(0,0,0,0.04)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.3)] transition-all duration-300">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 flex items-center gap-2 border-b border-panel-border/30 pb-4 mb-4">
+                <span>🎯 阿米巴成語接龍 - 核心玩法規則</span>
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-text-secondary leading-relaxed font-medium">
+                <div>
+                  <h4 className="font-bold text-text-primary text-base mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                    <span>1. 網格定位與方向</span>
+                  </h4>
+                  <p className="mb-4">
+                    點擊 15×15 棋盤網格中的任意格子，將其設置為您要放置的成語的<strong className="text-text-primary">第一個漢字</strong>（即起點）。
+                    在控制面板中，您可以切換排列方向為<strong className="text-text-primary">橫向 (Horizontal)</strong> 或<strong className="text-text-primary">縱向 (Vertical)</strong>。
+                  </p>
+                  
+                  <h4 className="font-bold text-text-primary text-base mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                    <span>2. 阿米巴相交接龍</span>
+                  </h4>
+                  <p>
+                    除首個單詞外，之後放置的每一個成語都必須與網格上已存在的漢字<strong className="text-text-primary">重疊（即共用至少一個字）</strong>。
+                    重疊的字必須完全相同，如果不匹配或未重疊，系統將提示不合規則。
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-text-primary text-base mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                    <span>3. 成語校驗與提示</span>
+                  </h4>
+                  <p className="mb-4">
+                    本遊戲包含<strong>嚴格的中文漢字成語庫驗證</strong>。每次輸入必須為有效成語且字數為 4 或 5 個字。
+                    如果真的卡關，可以點擊 <span className="font-bold text-cyan-600 dark:text-cyan-400">💡 求助提示</span>，系統會檢索字典自動在您的起點格放置一條可行成語。
+                  </p>
+
+                  <h4 className="font-bold text-text-primary text-base mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>4. Combo 連鎖加分</span>
+                  </h4>
+                  <p>
+                    如果擺放一個成語的同時，重疊了地圖上<strong className="text-text-primary">多個</strong>現有漢字，將觸發 Combo 連鎖！
+                    Combo 會成倍增加該成語獲得的基礎分，是爭奪積分榜的關鍵技巧。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* --- Header & Tabs Section --- */}
+            <header className="flex flex-col gap-4 border-b border-header-border pb-4">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-col text-center md:text-left">
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(236,72,153,0.15)] dark:drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">
+                    成語阿米巴
+                  </h1>
+                  <p className="text-xs text-text-secondary mt-1 uppercase tracking-widest font-mono">
+                    // Cyberpunk Grid Connection Game //
+                  </p>
+                </div>
+
+                {/* Mode & Theme Selectors */}
+                <div className="flex items-center gap-3 flex-wrap justify-center">
+                  {/* Mode Selectors */}
+                  <div className="flex bg-input-bg border border-panel-border/30 p-1 rounded-xl shadow-inner gap-1 transition-all duration-300">
+                    <button
+                      onClick={() => handleSwitchMode("free")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        gameMode === "free"
+                          ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      自由模式
+                    </button>
+                    <button
+                      onClick={() => handleSwitchMode("challenge")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        gameMode === "challenge"
+                          ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      積分挑戰
+                    </button>
+                    <button
+                      onClick={() => handleSwitchMode("battle")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                         gameMode === "battle"
-                          ? item.player === 1
-                            ? "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.15)] dark:drop-shadow-[0_0_4px_rgba(34,211,238,0.3)]"
-                            : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_4px_rgba(244,63,94,0.3)]"
-                          : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_4px_rgba(244,63,94,0.3)]"
-                      }`}>{item.word}</strong>
-                      {item.combo > 1 && (
-                        <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[9px] font-bold font-mono border border-purple-200 dark:border-purple-500/20">
-                          COMBO x{item.combo === 2 ? "2" : "3+"}
+                          ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      雙人對決
+                    </button>
+                  </div>
+
+                  {/* Theme Toggle Switch */}
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-input-bg border border-panel-border/35 text-text-primary hover:scale-[1.03] active:scale-[0.97] transition-all shadow-[0_2px_10px_rgba(0,0,0,0.05)] cursor-pointer font-bold text-xs"
+                    title={theme === "dark" ? "切換至白天模式" : "切換至黑夜模式"}
+                  >
+                    {theme === "dark" ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-amber-400 animate-[spin_10s_linear_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                        </svg>
+                        <span>白天</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                        <span>黑夜</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Scoreboards depending on mode */}
+                {gameMode !== "battle" ? (
+                  /* Solo Scoreboard */
+                  <div className="flex items-center gap-4">
+                    <div className="bg-input-bg border border-cyan-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(6,182,212,0.05)] transition-all duration-300">
+                      <span className="text-[10px] text-cyan-500 dark:text-cyan-400 font-bold uppercase tracking-widest font-mono">Score</span>
+                      <span className="text-2xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.2)] dark:drop-shadow-[0_0_6px_rgba(34,211,238,0.4)]">
+                        {String(scores.p1).padStart(5, "0")}
+                      </span>
+                    </div>
+                    {gameMode === "challenge" && (
+                      <div className="bg-input-bg border border-emerald-500/30 rounded-lg px-4 py-2 flex flex-col items-center min-w-[90px] shadow-[0_0_12px_rgba(16,185,129,0.05)] animate-pulse transition-all duration-300">
+                        <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest font-mono">Time Left</span>
+                        <span className={`text-2xl font-mono font-black ${timeLeft <= 15 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-300"} drop-shadow-[0_0_6px_rgba(52,211,153,0.2)]`}>
+                          {timeLeft}s
                         </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Two Player Battle Scoreboard */
+                  <div className="flex items-center gap-4">
+                    {/* P1 Scoreboard */}
+                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[100px] transition-all duration-300 ${
+                      currentPlayer === 1 && gameState === "playing"
+                        ? "border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.3)] scale-105"
+                        : "border-cyan-500/20 opacity-60"
+                    }`}>
+                      <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-bold uppercase tracking-widest font-mono">P1 藍阿米巴</span>
+                      <span className="text-xl font-mono font-black text-cyan-600 dark:text-cyan-300 drop-shadow-[0_0_4px_rgba(34,211,238,0.3)]">
+                        {String(scores.p1).padStart(5, "0")}
+                      </span>
+                    </div>
+
+                    {/* Turn countdown bar */}
+                    <div className="flex flex-col items-center min-w-[60px]">
+                      <span className="text-[9px] text-text-secondary font-bold uppercase tracking-widest font-mono">Turn Time</span>
+                      <span className={`text-lg font-mono font-bold ${timeLeft <= 5 ? "text-red-500 animate-ping" : "text-text-primary"}`}>
+                        {timeLeft}s
+                      </span>
+                    </div>
+
+                    {/* P2 Scoreboard */}
+                    <div className={`bg-input-bg border rounded-lg px-4 py-2 flex flex-col items-center min-w-[100px] transition-all duration-300 ${
+                      currentPlayer === 2 && gameState === "playing"
+                        ? "border-pink-400 shadow-[0_0_12px_rgba(244,63,94,0.3)] scale-105"
+                        : "border-pink-500/20 opacity-60"
+                    }`}>
+                      <span className="text-[9px] text-pink-600 dark:text-pink-400 font-bold uppercase tracking-widest font-mono">P2 粉阿米巴</span>
+                      <span className="text-xl font-mono font-black text-pink-600 dark:text-pink-300 drop-shadow-[0_0_4px_rgba(244,63,94,0.3)]">
+                        {String(scores.p2).padStart(5, "0")}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Mode Banner Description */}
+              <div className="text-[11px] text-text-secondary font-mono flex items-center gap-1.5 px-2 bg-panel-bg/40 py-1.5 rounded border border-panel-border/30">
+                <span>// CURRENT_MODE:</span>
+                <span className="text-purple-600 dark:text-purple-400 font-bold uppercase">
+                  {gameMode === "free" ? "Free Play" : gameMode === "challenge" ? "Score Challenge" : "Two-Player Local Battle"}
+                </span>
+                <span>•</span>
+                <span>
+                  {gameMode === "free"
+                    ? "自由練習，可隨時放置且無時間限制。"
+                    : gameMode === "challenge"
+                    ? "限時 90 秒爭取最高分，吃掉【⏰ 綠色時鐘】可延長 10 秒時間！"
+                    : "雙人回合輪流出牌，佔領對手重疊的格子可獲得額外掠奪分（+150/格）！"}
+                </span>
+              </div>
+            </header>
+
+            {/* --- Main Dashboard --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* LEFT: Game Board Grid Container (8 Cols) */}
+              <section className="lg:col-span-8 bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 sm:p-6 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center relative transition-all duration-300">
+                {/* Game Over Screen Overlay */}
+                {gameState === "gameover" && (
+                  <div className="absolute inset-0 bg-background/95 backdrop-blur-md rounded-2xl z-30 flex flex-col items-center justify-center p-6 border border-red-500/20 shadow-[0_0_40px_rgba(239,68,68,0.15)] dark:shadow-[0_0_40px_rgba(239,68,68,0.3)] transition-all duration-300">
+                    <h2 className="text-3xl font-black text-red-500 tracking-wider mb-2 animate-pulse drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+                      GAME OVER
+                    </h2>
+                    <p className="text-xs text-text-secondary uppercase tracking-widest font-mono mb-6">
+                      {gameMode === "free" ? "// 您已選擇放棄此局 //" : gameMode === "challenge" ? "// 挑戰時間截止 //" : "// 雙方回合棄權或玩家認輸 //"}
+                    </p>
+
+                    <div className="bg-input-bg border border-panel-border/40 rounded-xl p-6 flex flex-col items-center gap-4 min-w-[280px] mb-8 shadow-2xl transition-all duration-300">
+                      {gameMode !== "battle" ? (
+                        <>
+                          <span className="text-xs text-text-secondary">最終獲得積分</span>
+                          <span className="text-4xl font-mono font-black text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.3)]">
+                            {scores.p1} 分
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs text-text-secondary">對決獲勝方</span>
+                          <span className={`text-2xl font-black text-center ${getWinnerInfo().style}`}>
+                            {getWinnerInfo().text}
+                          </span>
+                          <div className="grid grid-cols-2 gap-4 w-full border-t border-input-border pt-4 mt-2 text-center text-xs font-mono">
+                            <div>
+                              <div className="text-cyan-600 dark:text-cyan-400">藍阿米巴 P1</div>
+                              <div className="text-lg font-bold text-text-primary mt-1">{scores.p1}</div>
+                            </div>
+                            <div>
+                              <div className="text-pink-600 dark:text-pink-400">粉阿米巴 P2</div>
+                              <div className="text-lg font-bold text-text-primary mt-1">{scores.p2}</div>
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
+
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => handleStartGame(gameMode)}
+                        className="px-6 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white cursor-pointer active:scale-95 hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] transition-all"
+                      >
+                        再次挑戰
+                      </button>
+                      <button
+                        onClick={() => resetGame(gameMode)}
+                        className="px-6 py-2.5 rounded-lg font-bold text-sm bg-input-bg hover:bg-panel-bg border border-input-border text-text-primary cursor-pointer active:scale-95 transition-all"
+                      >
+                        返回主選單
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grid legends */}
+                <div className="w-full flex items-center justify-between text-xs text-text-secondary mb-4 px-2">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 bg-cyan-500/20 border border-cyan-400 rounded-sm shadow-[0_0_4px_#06b6d4]"></span>
+                      <span>選中起點</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 bg-green-500/10 border border-green-400 border-dashed rounded-sm"></span>
+                      <span>預覽合格</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-400 rounded-sm"></span>
+                      <span>♦ 積分養分</span>
+                    </div>
+                    {gameMode === "challenge" && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-block w-2.5 h-2.5 bg-amber-500/20 border border-amber-400 rounded-sm"></span>
+                        <span>⏰ 時間養分 (+10s)</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isGridEmpty() && gameState === "playing" && (
+                    <button
+                      onClick={handlePlaceRandomStarter}
+                      className="px-3 py-1.5 rounded bg-btn-primary-bg/10 hover:bg-btn-primary-bg/20 border border-btn-primary-bg/30 text-btn-primary-bg dark:text-purple-200 transition-all font-semibold active:scale-95 text-xs flex items-center gap-1.5 hover:shadow-[0_0_10px_rgba(168,85,247,0.2)] cursor-pointer"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-btn-primary-bg animate-ping"></span>
+                      隨機擺放首詞
+                    </button>
+                  )}
+                </div>
+
+                {/* Scrollable grid wrapper */}
+                <div className="w-full overflow-x-auto pb-2 flex justify-start md:justify-center relative">
+                  <div className="min-w-[500px] select-none p-1.5">
+                    <div
+                      className="grid gap-1 bg-input-bg/70 p-2.5 rounded-xl border border-input-border shadow-[0_0_20px_rgba(139,92,246,0.02)] dark:shadow-[0_0_20px_rgba(139,92,246,0.05)] relative transition-all duration-300"
+                      style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
+                    >
+                      {/* Grid Column Headers */}
+                      <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center"></div>
+                      {COL_LABELS.map((colName) => (
+                        <div
+                          key={colName}
+                          className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-[10px] sm:text-xs font-bold text-text-secondary font-mono tracking-wider"
+                        >
+                          {colName}
+                        </div>
+                      ))}
+
+                      {/* Grid Rows */}
+                      {Array.from({ length: 15 }).map((_, rIdx) => (
+                        <React.Fragment key={rIdx}>
+                          {/* Row Label */}
+                          <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-[10px] sm:text-xs font-bold text-text-secondary font-mono">
+                            {rIdx + 1}
+                          </div>
+
+                          {/* 15 Cells */}
+                          {Array.from({ length: 15 }).map((_, cIdx) => {
+                            const cellValue = grid[rIdx][cIdx];
+                            const isSelected = selectedCell?.row === rIdx && selectedCell?.col === cIdx;
+                            const cellOwner = cellOwners[`${rIdx},${cIdx}`];
+
+                            // Nutrient details
+                            const cellNutrient = nutrients.find((n) => n.r === rIdx && n.c === cIdx);
+
+                            // Preview state variables
+                            let previewChar = "";
+                            let isPreviewCell = false;
+                            let previewClash = false;
+                            let previewValid = false;
+
+                            if (preview) {
+                              const pCell = preview.cells.find((c) => c.r === rIdx && c.c === cIdx);
+                              if (pCell) {
+                                isPreviewCell = true;
+                                previewChar = pCell.char;
+                                previewClash = pCell.clash;
+                                previewValid = preview.isValid;
+                              }
+                            }
+
+                            // Determine styles
+                            let cellBgClass = "bg-cell-bg-default";
+                            let borderClass = "border-cell-border-default";
+                            let textClass = "text-cell-text-default";
+                            let shadowClass = "";
+
+                            if (cellValue) {
+                              if (gameMode === "battle") {
+                                // Split styles for Player 1 & 2
+                                if (cellOwner === 1) {
+                                  cellBgClass = "bg-cell-bg-p1";
+                                  borderClass = "border-cell-border-p1";
+                                  textClass = "text-cell-text-p1 font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
+                                } else {
+                                  cellBgClass = "bg-cell-bg-p2";
+                                  borderClass = "border-cell-border-p2";
+                                  textClass = "text-cell-text-p2 font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
+                                }
+                              } else {
+                                cellBgClass = "bg-cell-bg-filled";
+                                borderClass = "border-cell-border-filled";
+                                textClass = "text-cell-text-filled font-extrabold drop-shadow-[0_0_5px_var(--glow-color)]";
+                              }
+                            } else if (isPreviewCell) {
+                              if (previewClash) {
+                                cellBgClass = "bg-red-500/10";
+                                borderClass = "border-red-500/50";
+                                textClass = "text-red-500 font-bold";
+                              } else {
+                                cellBgClass = previewValid ? "bg-green-500/15" : "bg-yellow-500/10";
+                                borderClass = previewValid 
+                                  ? "border-green-400 border-dashed" 
+                                  : "border-yellow-400 border-dashed";
+                                textClass = previewValid 
+                                  ? "text-green-600 dark:text-green-400 font-bold" 
+                                  : "text-yellow-600 dark:text-yellow-400 font-bold";
+                              }
+                            } else if (isSelected) {
+                              cellBgClass = "bg-cyan-500/20";
+                              borderClass = "border-cyan-400 shadow-[0_0_8px_#06b6d4]";
+                              textClass = "text-cyan-600 dark:text-cyan-300 font-bold";
+                            }
+
+                            return (
+                              <button
+                                key={cIdx}
+                                type="button"
+                                disabled={gameState !== "playing"}
+                                onClick={() => setSelectedCell({ row: rIdx, col: cIdx })}
+                                className={`w-7 h-7 sm:w-10 sm:h-10 rounded flex items-center justify-center text-xs sm:text-base border transition-all duration-150 active:scale-95 ${cellBgClass} ${borderClass} ${textClass} ${shadowClass} relative select-none cursor-pointer ${
+                                  !cellValue && gameState === "playing" ? "hover:border-cyan-500/40 hover:bg-cyan-500/5" : ""
+                                }`}
+                              >
+                                {cellValue || previewChar}
+                                
+                                {/* Nutrient Indicator Overlay */}
+                                {!cellValue && !previewChar && cellNutrient && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    {cellNutrient.type === "time" ? (
+                                      <span className="text-[10px] sm:text-xs animate-bounce" title="⏰ 時間養分 (+10s)">⏰</span>
+                                    ) : (
+                                      <span className="text-[10px] sm:text-xs text-emerald-500 font-bold animate-pulse" title="♦ 積分養分 (+200分)">♦</span>
+                                    )}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Selected Cell Label */}
+                <div className="w-full text-center mt-3 text-xs text-text-secondary font-mono">
+                  {selectedCell ? (
+                    <span>
+                      目前選中座標：
+                      <strong className="text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 dark:bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/20 dark:border-cyan-800/30">
+                        {COL_LABELS[selectedCell.col]}
+                        {selectedCell.row + 1}
+                      </strong>
+                    </span>
+                  ) : (
+                    <span>請點擊地圖選擇格子以設定文字起點</span>
+                  )}
+                </div>
+              </section>
+
+              {/* RIGHT: Game Controls Panel (4 Cols) */}
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                
+                {/* Control Panel Card */}
+                <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-4 transition-all duration-300">
+                  <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-purple-600 dark:from-cyan-400 dark:to-purple-400 flex items-center justify-between border-b border-input-border pb-2">
+                    <span className="flex items-center gap-2">
+                      <span>控制面板</span>
+                      {gameMode === "battle" && (
+                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${
+                          currentPlayer === 1 ? "bg-cyan-500/20 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400" : "bg-pink-500/20 text-pink-700 dark:bg-pink-950 dark:text-pink-400"
+                        }`}>
+                          P{currentPlayer} 回合
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] text-text-secondary font-mono">CONTROL PANEL</span>
+                  </h2>
+
+                  <div className="flex flex-col gap-3">
+                    
+                    {/* 4-Letter Word Input */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-text-secondary font-semibold flex justify-between">
+                        <span>輸入 4-5 字成語</span>
+                        {selectedCell && (
+                          <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-bold">
+                            起點: {COL_LABELS[selectedCell.col]}{selectedCell.row + 1}
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={5}
+                        value={inputWord}
+                        disabled={gameState !== "playing"}
+                        onChange={(e) => setInputWord(e.target.value.trim())}
+                        placeholder="請輸入四字成語..."
+                        className="bg-input-bg border border-input-border hover:border-panel-border focus:border-cyan-500 dark:focus:border-cyan-400 focus:outline-none focus:shadow-[0_0_8px_rgba(34,211,238,0.15)] rounded-lg px-3.5 py-2 text-sm text-text-primary transition-all font-medium placeholder-text-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Direction Switch */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs text-text-secondary font-semibold">排版排列方向</span>
+                      <div className="grid grid-cols-2 gap-2 bg-input-bg/50 p-1 rounded-lg border border-input-border">
+                        <button
+                          type="button"
+                          onClick={() => setDirection("H")}
+                          disabled={gameState !== "playing"}
+                          className={`py-1.5 text-xs font-bold rounded transition-all cursor-pointer ${
+                            direction === "H"
+                              ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35"
+                              : "text-text-secondary hover:text-text-primary"
+                          }`}
+                        >
+                          橫向排列 (H)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDirection("V")}
+                          disabled={gameState !== "playing"}
+                          className={`py-1.5 text-xs font-bold rounded transition-all cursor-pointer ${
+                            direction === "V"
+                              ? "bg-btn-primary-bg/20 text-btn-primary-bg dark:text-purple-200 border border-btn-primary-bg/35"
+                              : "text-text-secondary hover:text-text-primary"
+                          }`}
+                        >
+                          縱向排列 (V)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Action Submit Button */}
+                    <button
+                      type="button"
+                      onClick={() => handlePlaceIdiom()}
+                      disabled={!selectedCell || !inputWord || preview?.isValid === false || gameState !== "playing"}
+                      className={`py-2.5 rounded-lg font-bold text-sm transition-all duration-200 cursor-pointer active:scale-97 select-none border ${
+                        !selectedCell || !inputWord || gameState !== "playing"
+                          ? "bg-input-bg border-input-border text-text-secondary/40 cursor-not-allowed"
+                          : preview?.isValid === false
+                          ? "bg-red-500/10 border-red-500/30 text-red-500 cursor-not-allowed"
+                          : gameMode === "battle"
+                          ? currentPlayer === 1
+                            ? "bg-cyan-500 hover:bg-cyan-400 text-black border-transparent shadow-[0_0_15px_rgba(6,182,212,0.3)] font-extrabold"
+                            : "bg-pink-500 hover:bg-pink-400 text-black border-transparent shadow-[0_0_15px_rgba(244,63,94,0.3)] font-extrabold"
+                          : "bg-btn-primary-bg hover:opacity-90 text-btn-primary-text border-transparent shadow-[0_0_15px_var(--glow-color)] font-extrabold"
+                      }`}
+                    >
+                      {preview?.isValid === false ? "規則限制無法放置" : "放置成語"}
+                    </button>
+
+                    {/* Pass Turn Button (Battle Mode Only) */}
+                    {gameMode === "battle" && gameState === "playing" && (
+                      <button
+                        type="button"
+                        onClick={handlePassTurn}
+                        className="py-1.5 rounded-lg font-semibold text-xs bg-input-bg border border-input-border text-text-secondary hover:text-text-primary active:scale-97 transition-all cursor-pointer"
+                      >
+                        棄權 / 換下一位 (Pass)
+                      </button>
+                    )}
+
+                    {/* Hint & Give Up Buttons */}
+                    {gameState === "playing" && (
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <button
+                          type="button"
+                          onClick={handleGetHint}
+                          disabled={loadingDict || (gameMode !== "free" && (currentPlayer === 1 ? scores.p1 : scores.p2) < 50)}
+                          className="py-1.5 rounded-lg font-semibold text-[11px] bg-input-bg border border-input-border text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-97 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                          title="獲取一個接龍字詞提示，每次使用扣除 50 分"
+                        >
+                          <span>💡 求助提示</span>
+                          <span className="scale-90 font-mono text-[9px] opacity-75">-50pt</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleGiveUp}
+                          className="py-1.5 rounded-lg font-semibold text-[11px] bg-input-bg border border-red-500/20 text-red-500 hover:bg-red-500/10 active:scale-97 transition-all cursor-pointer flex items-center justify-center gap-1"
+                        >
+                          <span>🏳️ {gameMode === "battle" ? "認輸" : "放棄此局"}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Real-time Rule Check Alert Box */}
+                {preview && (
+                  <div
+                    className={`p-3 rounded-lg border text-xs leading-relaxed flex flex-col gap-1 transition-all ${
+                      preview.isValid
+                        ? "bg-green-500/10 dark:bg-green-950/20 border-green-500/20 dark:border-green-800/40 text-green-700 dark:text-green-400"
+                        : "bg-red-500/10 dark:bg-red-950/20 border-red-500/20 dark:border-red-800/40 text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    <span className="font-bold font-mono">
+                      {preview.isValid ? "✓ 擺放檢測合格" : "✗ 擺放檢測不符"}
+                    </span>
+                    {inputWord.trim().length !== 4 && inputWord.trim().length !== 5 && (
+                      <span>・字數必須為 4 或 5 個字（目前為 {inputWord.trim().length} 字）。</span>
+                    )}
+                    {preview.hasNonChinese && <span>・成語必須全部為中文漢字。</span>}
+                    {!preview.inBounds && <span>・部分字元會超出網格邊界。</span>}
+                    {preview.hasClash && <span>・與網格現存的字元發生衝突。</span>}
+                    {!preview.isGridEmpty && !preview.hasOverlap && (
+                      <span>・必須與現存字元重疊（阿米巴規則）。</span>
+                    )}
+                    {!loadingDict && !preview.isDictValid && (
+                      <span>・「{inputWord.trim()}」非成語庫中之有效成語。</span>
+                    )}
+                    {loadingDict && (
+                      <span className="text-yellow-600 dark:text-yellow-500 animate-pulse">・成語庫載入中，載入完成後將啟用嚴格驗證。</span>
+                    )}
+                    {preview.isValid && (
+                      <span>・按一下放置按鈕將單詞寫入網格。</span>
+                    )}
+                  </div>
+                )}
+
+              {/* Idiom Details Card (dynamic) */}
+              {selectedCellIdioms.length > 0 && (
+                <section className="bg-panel-bg backdrop-blur-md border border-cyan-500/30 rounded-2xl p-5 shadow-[0_0_25px_rgba(6,182,212,0.06)] dark:shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col gap-4 transition-all duration-300">
+                  <h2 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 flex items-center justify-between border-b border-input-border pb-2">
+                    <span className="flex items-center gap-2">
+                      <span>🔍 成語詳細解析</span>
+                    </span>
+                    <span className="text-[10px] text-text-secondary font-mono">IDIOM DETAILS</span>
+                  </h2>
+
+                  <div className="flex flex-col gap-4 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+                    {selectedCellIdioms.map((item) => {
+                      const details = idiomsDetails[item.word];
+                      const isPlayer1 = item.player === 1;
+                      
+                      return (
+                        <div key={item.id} className="border-b border-input-border pb-4 last:border-0 last:pb-0 flex flex-col gap-2">
+                          {/* Word and player badge */}
+                          <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-extrabold text-pink-600 dark:text-pink-400 tracking-wider drop-shadow-[0_0_6px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.3)]">
+                              {item.word}
+                            </h3>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              item.player === 1 
+                                ? "bg-cyan-500/10 text-cyan-700 border border-cyan-500/20 dark:bg-cyan-950/80 dark:text-cyan-400 dark:border-cyan-500/20" 
+                                : "bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20"
+                            }`}>
+                              {gameMode === "battle"
+                                ? isPlayer1 ? "藍色阿米巴 Placed" : "粉色阿米巴 Placed"
+                                : "玩家放置"}
+                            </span>
+                          </div>
+
+                          {/* Pinyin */}
+                          {details ? (
+                            <div className="text-xs font-mono text-text-secondary font-semibold bg-input-bg px-2 py-1 rounded w-fit border border-input-border">
+                              {details.pinyin || "拼音未收錄"}
+                            </div>
+                          ) : (
+                            <div className="text-xs font-mono text-text-secondary/60 italic">
+                              拼音載入中...
+                            </div>
+                          )}
+
+                          {/* Explanation */}
+                          <div className="flex flex-col gap-1 mt-1">
+                            <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">釋義 Explanation</span>
+                            <p className="text-xs text-text-primary leading-relaxed font-medium bg-input-bg/40 p-2 rounded border border-input-border/60">
+                              {details ? details.explanation || "釋義未收錄" : "詳細釋義載入中..."}
+                            </p>
+                          </div>
+
+                          {/* Derivation / Origin */}
+                          {details && details.derivation && (
+                            <div className="flex flex-col gap-1 mt-1">
+                              <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">典故 Origin</span>
+                              <p className="text-[11px] text-text-secondary leading-relaxed bg-input-bg/20 p-2 rounded border border-input-border/30">
+                                {details.derivation}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Score and Placement Details */}
+                          <div className="flex justify-between items-center text-[10px] text-text-secondary font-mono mt-1 bg-input-bg/30 px-2 py-1 rounded">
+                            <span>獲得分數: <strong className="text-cyan-600 dark:text-cyan-400">+{item.score}分</strong></span>
+                            <span>擺放方向: {item.direction === "H" ? "橫向" : "縱向"}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Gameplay instructions card */}
+              <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 transition-all duration-300">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest font-mono border-b border-input-border pb-1.5 flex justify-between items-center">
+                  <span>遊戲玩法說明</span>
+                  <span className="text-[9px] text-text-secondary">HOW TO PLAY</span>
+                </h3>
+                <ul className="text-[11px] text-text-secondary leading-relaxed list-disc list-inside flex flex-col gap-1.5">
+                  <li><strong>起點格</strong>：為成語<strong>第一個字</strong>的位置。</li>
+                  <li>
+                    <strong>阿米巴擴充</strong>：新成語必須與已有成語相交重疊。
+                    <span className="text-purple-600 dark:text-purple-400 font-semibold block mt-0.5 pl-4">
+                      串聯多重重疊，會觸發 Combo 翻倍計分！
+                    </span>
+                  </li>
+                  <li><strong>養分細胞點 (♦)</strong>：擺放成語若覆蓋地圖上的養分點，可額外獲得 <strong>+200分</strong>，挑戰模式更有 <strong>+10秒⏰</strong> 時鐘！</li>
+                  {gameMode === "battle" && (
+                    <li>
+                      <strong>雙人掠奪規則</strong>：玩家輪流在 30 秒內出牌。若與對手所屬的文字重疊，可掠奪該領地並獲得額外 <strong>+150 掠奪點</strong>！
+                    </li>
+                  )}
+                </ul>
+              </section>
+
+              {/* Presets and Helpers */}
+              <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 transition-all duration-300">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest font-mono border-b border-input-border pb-1.5 flex justify-between items-center">
+                  <span>測試預設字庫</span>
+                  <span className="text-[9px] text-text-secondary">PRESETS</span>
+                </h3>
+                <p className="text-[11px] text-text-secondary leading-normal">
+                  點擊下方成語，可快速填入上方文字欄：
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {PRESET_IDIOMS.map((idiom) => (
+                    <button
+                      key={idiom}
+                      disabled={gameState !== "playing"}
+                      onClick={() => setInputWord(idiom)}
+                      className="px-2 py-1 rounded bg-input-bg hover:bg-btn-primary-bg/10 border border-input-border hover:border-btn-primary-bg/35 text-xs text-text-primary transition-all font-mono disabled:opacity-50 cursor-pointer"
+                    >
+                      {idiom}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Utility Reset Button */}
+              <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-4 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 transition-all duration-300">
+                <button
+                  onClick={handleClearBoard}
+                  className="w-full py-1.5 rounded bg-input-bg hover:bg-red-500/10 border border-input-border hover:border-red-500/30 text-xs text-text-secondary hover:text-red-500 dark:hover:text-red-400 transition-all font-semibold active:scale-98 cursor-pointer"
+                >
+                  重設當前遊戲進度 (Reset)
+                </button>
+              </section>
+            </div>
+          </div>
+
+          {/* --- BOTTOM SECTION: System logs & History logs --- */}
+          <footer className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+            
+            {/* History Panel */}
+            <section className="bg-panel-bg backdrop-blur-md border border-panel-border rounded-2xl p-5 shadow-[2px_4px_30px_rgba(0,0,0,0.06)] dark:shadow-[2px_4px_30px_rgba(0,0,0,0.5)] flex flex-col gap-3 min-h-[220px] transition-all duration-300">
+              <h2 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 dark:from-pink-400 dark:to-purple-400 flex justify-between items-center border-b border-input-border pb-2">
+                <span>成語接龍履歷</span>
+                <span className="text-[10px] text-text-secondary font-mono">HISTORY LOG ({history.length})</span>
+              </h2>
+              <div className="flex-1 overflow-y-auto max-h-[200px] flex flex-col gap-2 pr-1 custom-scrollbar">
+                {history.length === 0 ? (
+                  <div className="text-xs text-text-secondary text-center py-10 font-mono">// NO HISTORY FOUND //</div>
+                ) : (
+                  history.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`flex justify-between items-center text-xs bg-input-bg/50 border rounded px-3 py-1.5 transition-all ${
+                        gameMode === "battle"
+                          ? item.player === 1
+                            ? "border-cyan-500/20 hover:border-cyan-500/40"
+                            : "border-pink-500/20 hover:border-pink-500/40"
+                          : "border-input-border hover:border-panel-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-text-secondary font-mono w-5">#{history.length - index}</span>
+                        <strong className={`tracking-wide text-sm font-bold ${
+                          gameMode === "battle"
+                            ? item.player === 1
+                              ? "text-cyan-600 dark:text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.15)]"
+                              : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
+                            : "text-pink-600 dark:text-pink-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.15)]"
+                        }`}>{item.word}</strong>
+                        {item.combo > 1 && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[9px] font-bold font-mono border border-purple-200 dark:border-purple-500/20 animate-pulse">
+                            COMBO x{item.combo}
+                          </span>
+                        )}
+                      </div>
                     <div className="flex items-center gap-4 text-[10px] text-text-secondary font-mono">
                       <span>+{item.score}分</span>
                       <span>起點: {COL_LABELS[item.col]}{item.row + 1} ({item.direction === "H" ? "橫向" : "縱向"})</span>
@@ -1664,6 +1786,8 @@ export default function Home() {
             </div>
           </section>
         </footer>
+      </>
+    )}
       </div>
     </div>
   );
