@@ -1383,11 +1383,11 @@ export default function Home() {
             </div>
 
             {/* Mode Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Card 1: Dungeon Mode */}
               <div 
                 onClick={() => handleStartGame("dungeon")}
-                className="md:col-span-2 bg-panel-bg backdrop-blur-md border border-purple-500/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_35px_rgba(139,92,246,0.2)] hover:border-purple-500/50 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+                className="bg-panel-bg backdrop-blur-md border border-purple-500/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_35px_rgba(139,92,246,0.15)] hover:border-purple-500/50 transition-all duration-300 relative group overflow-hidden cursor-pointer"
               >
                 {/* Neon glow effect on hover */}
                 <div className="absolute -inset-px bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl opacity-0 group-hover:opacity-10 transition duration-500 blur-xl"></div>
@@ -1399,14 +1399,14 @@ export default function Home() {
                       ROGUE-DUNGEON
                     </span>
                   </div>
-                  <h3 className="text-2xl font-black text-text-primary mb-1">地牢冒險模式</h3>
-                  <p className="text-xs text-text-secondary font-mono mb-4">// 融合 Roguelike 與生存機制的成語地牢冒險 //</p>
+                  <h3 className="text-xl font-black text-text-primary mb-1">地牢冒險模式</h3>
+                  <p className="text-[11px] text-text-secondary font-mono mb-4">// 融合 Roguelike 生存闖關 //</p>
                   
-                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2.5 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">生命值限制</strong>：起始擁有 3 點 HP，打錯字、非成語或違反接龍規則扣 1 點生命值，歸零則冒險失敗！</li>
-                    <li><strong className="text-text-primary">突變遺物抽取</strong>：在單章節累計得分達到 <strong>100 分</strong> 與 <strong>200 分</strong> 時，可獲得強力的突變遺物三選一加成。</li>
-                    <li><strong className="text-text-primary">首領戰 - 贅字史萊姆</strong>：達到 300 分目標時，BOSS 贅字史萊姆降臨，牠會不斷釋放贅字格封鎖網格。放置相鄰成語對牠造成等同該步得分的傷害！</li>
-                    <li><strong className="text-text-primary">繼承與晉級</strong>：擊敗 BOSS 後將保留剩餘生命、提示數與已獲得遺物，並重置網格晉級下一個章節。</li>
+                  <ul className="text-xs text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">生命機制</strong>：擁有 3 點 HP，打錯、非成語或違反接龍扣 1 HP。</li>
+                    <li><strong className="text-text-primary">突變遺物</strong>：達 100/200 分時，可選取突變遺物增強能力。</li>
+                    <li><strong className="text-text-primary">首領激戰</strong>：300 分時 BOSS 贅字史萊姆降臨，釋放贅字格封鎖網格。</li>
+                    <li><strong className="text-text-primary">重整晉級</strong>：擊敗 BOSS 保留生命/提示並晉級下一個章節。</li>
                   </ul>
                 </div>
                 
@@ -1415,7 +1415,7 @@ export default function Home() {
                     e.stopPropagation();
                     handleStartGame("dungeon");
                   }}
-                  className="w-full py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(139,92,246,0.3)] flex items-center justify-center gap-1.5"
+                  className="w-full py-3 rounded-xl font-black text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(139,92,246,0.25)] flex items-center justify-center gap-1.5"
                 >
                   <span>開啟地牢冒險</span>
                   <span>➜</span>
@@ -1425,7 +1425,7 @@ export default function Home() {
               {/* Card 2: Free Mode */}
               <div 
                 onClick={() => handleStartGame("free")}
-                className="md:col-span-1 bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] dark:hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:border-emerald-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(16,185,129,0.12)] dark:hover:shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:border-emerald-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
@@ -1434,13 +1434,14 @@ export default function Home() {
                       FREE PLAY
                     </span>
                   </div>
-                  <h3 className="text-2xl font-black text-text-primary mb-1">自由練習模式</h3>
-                  <p className="text-xs text-text-secondary font-mono mb-4">// 無壓力成語接龍練習 //</p>
+                  <h3 className="text-xl font-black text-text-primary mb-1">自由練習模式</h3>
+                  <p className="text-[11px] text-text-secondary font-mono mb-4">// 無壓力成語接龍練習 //</p>
                   
-                  <ul className="text-sm text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
-                    <li><strong className="text-text-primary">無時間與生命限制</strong>：無須承受生命值扣減的壓力，可以從容不迫地思考排列。</li>
-                    <li><strong className="text-text-primary">免費提示</strong>：卡關時點擊提示不消耗任何次數或分數，自動填寫。</li>
-                    <li><strong className="text-text-primary">積分養分點</strong>：地圖隨機生成積分點（♦），覆蓋可獲 <strong>+200分</strong>。</li>
+                  <ul className="text-xs text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">無壓力</strong>：無時間與生命限制，可從容不迫地思考與排列。</li>
+                    <li><strong className="text-text-primary">免費提示</strong>：卡關時點擊提示不消耗任何次數或分數。</li>
+                    <li><strong className="text-text-primary">積分養分點</strong>：地圖隨機生成積分點（♦），覆蓋獲得額外加分。</li>
+                    <li><strong className="text-text-primary">熟悉字庫</strong>：適合用來熟悉座標和接龍排列，練習成語。</li>
                   </ul>
                 </div>
                 
@@ -1449,9 +1450,79 @@ export default function Home() {
                     e.stopPropagation();
                     handleStartGame("free");
                   }}
-                  className="w-full py-3.5 rounded-xl font-black text-sm bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.25)] flex items-center justify-center gap-1.5"
+                  className="w-full py-3 rounded-xl font-black text-xs bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(16,185,129,0.25)] flex items-center justify-center gap-1.5"
                 >
                   <span>開始自由練習</span>
+                  <span>➜</span>
+                </button>
+              </div>
+
+              {/* Card 3: Challenge Mode */}
+              <div 
+                onClick={() => handleStartGame("challenge")}
+                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(245,158,11,0.12)] dark:hover:shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:border-amber-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-4xl">⚡</span>
+                    <span className="text-[10px] font-bold font-mono tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      CHALLENGE
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-text-primary mb-1">積分挑戰模式</h3>
+                  <p className="text-[11px] text-text-secondary font-mono mb-4">// 限時 120s 高分大作戰 //</p>
+                  
+                  <ul className="text-xs text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">限時 120 秒</strong>：爭分奪秒！倒數結束將自動結算最終成績。</li>
+                    <li><strong className="text-text-primary">成功加時</strong>：每成功放置一個正確成語可增加 20 秒！</li>
+                    <li><strong className="text-text-primary">時間養分</strong>：吃掉地圖上的時鐘（⏰）可額外增加 10 秒！</li>
+                    <li><strong className="text-text-primary">提示扣分</strong>：使用求助提示每次將扣除 50 積分。</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartGame("challenge");
+                  }}
+                  className="w-full py-3 rounded-xl font-black text-xs bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-1.5"
+                >
+                  <span>挑戰高分極限</span>
+                  <span>➜</span>
+                </button>
+              </div>
+
+              {/* Card 4: Battle Mode */}
+              <div 
+                onClick={() => handleStartGame("battle")}
+                className="bg-panel-bg backdrop-blur-md border border-panel-border/30 rounded-2xl p-6 flex flex-col justify-between hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(236,72,153,0.12)] dark:hover:shadow-[0_0_30px_rgba(236,72,153,0.25)] hover:border-pink-500/40 transition-all duration-300 relative group overflow-hidden cursor-pointer"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-4xl">⚔️</span>
+                    <span className="text-[10px] font-bold font-mono tracking-widest text-pink-600 dark:text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded border border-pink-500/20">
+                      LOCAL PVP
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-text-primary mb-1">雙人對決模式</h3>
+                  <p className="text-[11px] text-text-secondary font-mono mb-4">// 同屏 1v1 生存領地對抗 //</p>
+                  
+                  <ul className="text-xs text-text-secondary leading-relaxed space-y-2 mb-6 border-t border-panel-border/20 pt-4 list-disc pl-4">
+                    <li><strong className="text-text-primary">回合制生存</strong>：藍/粉阿米巴同屏 1v1 回合制生存對抗。</li>
+                    <li><strong className="text-text-primary">60秒與生命</strong>：每人 5 生命，超時或棄權扣 1 命並換人。</li>
+                    <li><strong className="text-text-primary">提示扣命</strong>：使用求助提示每次將扣除 1 點生命值。</li>
+                    <li><strong className="text-text-primary">領地搶奪</strong>：重疊對手文字可獲得 +150 額外掠奪分/格。</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartGame("battle");
+                  }}
+                  className="w-full py-3 rounded-xl font-black text-xs bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-90 text-white cursor-pointer active:scale-95 transition-all shadow-[0_4px_15px_rgba(236,72,153,0.2)] flex items-center justify-center gap-1.5"
+                >
+                  <span>開啟對決大戰</span>
                   <span>➜</span>
                 </button>
               </div>
