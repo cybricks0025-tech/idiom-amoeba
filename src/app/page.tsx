@@ -134,6 +134,7 @@ export default function Home() {
     timeLeft: number;
     char: string;
   } | null>(null);
+  const [bombStepCounter, setBombStepCounter] = useState<number>(0);
   const [selectedRelicInfo, setSelectedRelicInfo] = useState<{ title: string; desc: string; icon: string } | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<{ word: string; hpLost: number } | null>(null);
 
@@ -337,6 +338,7 @@ export default function Home() {
     setBossHp(0);
     setRockCells(new Set());
     setActiveBomb(null);
+    setBombStepCounter(0);
     setSelectedRelicInfo(null);
     setDuplicateWarning(null);
   };
@@ -391,6 +393,7 @@ export default function Home() {
     setBossHp(0);
     setRockCells(new Set());
     setActiveBomb(null);
+    setBombStepCounter(0);
     setSelectedRelicInfo(null);
     setDuplicateWarning(null);
 
@@ -960,6 +963,7 @@ export default function Home() {
       }
       setRockCells(rocks);
       setActiveBomb(null);
+      setBombStepCounter(0);
       setSelectedRelicInfo(null);
       setDuplicateWarning(null);
       
@@ -1380,7 +1384,16 @@ export default function Home() {
         }
       } else if (chapter === 2) {
         // Boss 2 Action (沙漏文曲星 time bomb counter)
-        spawnTimeBomb(newGrid);
+        if (!activeBomb) {
+          setBombStepCounter((prev) => {
+            const next = prev + 1;
+            if (next >= 3) {
+              spawnTimeBomb(newGrid);
+              return 0;
+            }
+            return next;
+          });
+        }
       }
     }
 
@@ -3078,7 +3091,7 @@ export default function Home() {
                     🦠 <strong className="text-text-primary">第一章【贅字史萊姆】</strong>：每回合會噴灑「贅字阻擋格」封鎖網格。在 BOSS 核心相鄰格放置成語可對其造成傷害。
                   </p>
                   <p>
-                    ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每次放置成語都會鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
+                    ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每 3 回合鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
                   </p>
                   <p>
                     🏆 <strong className="text-text-primary">遺物系統</strong>：達到里程碑得分時（第一章 100/200 分，第二章 200/400 分）觸發遺物三選一，獲得強大的被動增益！
