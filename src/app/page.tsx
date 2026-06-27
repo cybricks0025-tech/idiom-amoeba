@@ -138,6 +138,12 @@ export default function Home() {
   const [selectedRelicInfo, setSelectedRelicInfo] = useState<{ title: string; desc: string; icon: string } | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<{ word: string; hpLost: number } | null>(null);
 
+  // --- Chapter 3 Boss [竹簡巨蟒] States ---
+  const [pythonBody, setPythonBody] = useState<{ r: number; c: number }[]>([]);
+  const [pythonNextMove, setPythonNextMove] = useState<{ r: number; c: number } | null>(null);
+  const [pythonStunned, setPythonStunned] = useState<boolean>(false);
+  const [inkCells, setInkCells] = useState<Record<string, number>>({});
+
   const convertToTraditional = (str: string) => {
     return str.split("").map((char) => charMap[char] || char).join("");
   };
@@ -260,14 +266,79 @@ export default function Home() {
   const getTargetScoreForChapter = (ch: number) => {
     if (ch === 1) return 300;
     if (ch === 2) return 500;
-    if (ch === 3) return 1500;
+    if (ch === 3) return 1200;
+    if (ch === 4) return 1500;
     return 2000;
   };
 
   const getRelicCheckpointsForChapter = (ch: number) => {
     if (ch === 1) return [100, 200];
     if (ch === 2) return [200, 400];
-    return [500, 1000];
+    if (ch === 3) return [500, 1000];
+    if (ch === 4) return [600, 1200];
+    return [700, 1500];
+  };
+
+  const getPythonNextMove = (
+    body: { r: number; c: number }[],
+    currentGrid: string[][],
+    rocks: Set<string>
+  ): { r: number; c: number } | null => {
+    if (body.length === 0) return null;
+    const head = body[0];
+    const size = currentGrid.length;
+    const candidates = [
+      { r: head.r - 1, c: head.c },
+      { r: head.r + 1, c: head.c },
+      { r: head.r, c: head.c - 1 },
+      { r: head.r, c: head.c + 1 }
+    ];
+
+    const validCandidates = candidates.filter((cand) => {
+      if (cand.r < 0 || cand.r >= size || cand.c < 0 || cand.c >= size) return false;
+      if (rocks.has(`${cand.r},${cand.c}`)) return false;
+      if (body.some((b) => b.r === cand.r && b.c === cand.c)) return false;
+      return true;
+    });
+
+    if (validCandidates.length === 0) return null;
+
+    const playerCells: { r: number; c: number }[] = [];
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const char = currentGrid[r][c];
+        if (char !== "") {
+          const isBossCell = body.some((b) => b.r === r && b.c === c);
+          const isRock = rocks.has(`${r},${c}`);
+          if (!isBossCell && !isRock) {
+            playerCells.push({ r, c });
+          }
+        }
+      }
+    }
+
+    if (playerCells.length === 0) {
+      return validCandidates[Math.floor(Math.random() * validCandidates.length)];
+    }
+
+    let bestCand = validCandidates[0];
+    let minDistance = Infinity;
+
+    for (const cand of validCandidates) {
+      let candMinDist = Infinity;
+      for (const pCell of playerCells) {
+        const dist = Math.abs(cand.r - pCell.r) + Math.abs(cand.c - pCell.c);
+        if (dist < candMinDist) {
+          candMinDist = dist;
+        }
+      }
+      if (candMinDist < minDistance) {
+        minDistance = candMinDist;
+        bestCand = cand;
+      }
+    }
+
+    return bestCand;
   };
 
   // --- Helper: Spawn Nutrient Cells ---
@@ -341,6 +412,10 @@ export default function Home() {
     setBombStepCounter(0);
     setSelectedRelicInfo(null);
     setDuplicateWarning(null);
+    setPythonBody([]);
+    setPythonNextMove(null);
+    setPythonStunned(false);
+    setInkCells({});
   };
 
   // Switch modes handler
@@ -396,6 +471,10 @@ export default function Home() {
     setBombStepCounter(0);
     setSelectedRelicInfo(null);
     setDuplicateWarning(null);
+    setPythonBody([]);
+    setPythonNextMove(null);
+    setPythonStunned(false);
+    setInkCells({});
 
     // Auto-place random starter word in center
     const randomWord = STARTING_IDIOMS[Math.floor(Math.random() * STARTING_IDIOMS.length)];
@@ -798,10 +877,11 @@ export default function Home() {
       }
 
       const isRock = rockCells.has(`${coord.r},${coord.c}`);
+      const isInk = gameMode === "dungeon" && inkCells[`${coord.r},${coord.c}`] > 0;
       const existingChar = grid[coord.r][coord.c];
       const newChar = trimmed[index] || "";
-      const isClash = isRock || (existingChar !== "" && existingChar !== newChar);
-      const isOverlap = !isRock && existingChar !== "" && existingChar === newChar;
+      const isClash = isRock || isInk || (existingChar !== "" && existingChar !== newChar);
+      const isOverlap = !isRock && !isInk && existingChar !== "" && existingChar === newChar;
 
       if (isClash) hasClash = true;
       if (isOverlap) hasOverlap = true;
@@ -966,6 +1046,10 @@ export default function Home() {
       setBombStepCounter(0);
       setSelectedRelicInfo(null);
       setDuplicateWarning(null);
+      setPythonBody([]);
+      setPythonNextMove(null);
+      setPythonStunned(false);
+      setInkCells({});
       
       setGrid(newGrid);
       setCellOwners(newCellOwners);
@@ -1183,9 +1267,15 @@ export default function Home() {
       const existing = grid[r][c];
       const current = activeWord[i];
       const isRock = rockCells.has(`${r},${c}`);
+      const isInk = gameMode === "dungeon" && inkCells[`${r},${c}`] > 0;
 
       if (isRock) {
         clashCell = { r, c, existing: "🧱", current };
+        break;
+      }
+
+      if (isInk) {
+        clashCell = { r, c, existing: "墨", current };
         break;
       }
 
@@ -1326,13 +1416,72 @@ export default function Home() {
             dealDamageToBoss = true;
             bossDamage = roundScore * contactCount;
           }
-        } else {
+        } else if (chapter === 2) {
           const isAdjacent = coords.some((coord) => 
             bossCells.some((bc) => Math.abs(coord.r - bc.r) <= 1 && Math.abs(coord.c - bc.c) <= 1)
           );
           if (isAdjacent) {
             dealDamageToBoss = true;
             bossDamage = roundScore;
+          }
+        } else if (chapter === 3) {
+          // Chapter 3: Bamboo Python Boss Action & Movement
+          let pythonHitThisTurn = false;
+          if (pythonNextMove) {
+            const isIntercepted = coords.some((coord) => coord.r === pythonNextMove.r && coord.c === pythonNextMove.c);
+            if (isIntercepted) {
+              pythonHitThisTurn = true;
+              dealDamageToBoss = true;
+              bossDamage = 150;
+              setPythonStunned(true);
+              addLog("💥 【擊中 BOSS】您的成語成功攔截了【竹簡巨蟒】的去路！造成了 150 點傷害，並使其停頓一回合！", "success");
+            }
+          }
+
+          if (pythonHitThisTurn) {
+            const nextM = getPythonNextMove(pythonBody, newGrid, rockCells);
+            setPythonNextMove(nextM);
+          } else if (pythonStunned) {
+            setPythonStunned(false);
+            const nextM = getPythonNextMove(pythonBody, newGrid, rockCells);
+            setPythonNextMove(nextM);
+            addLog("🐍 【竹簡巨蟒】從暈眩中恢復，本回合停頓原地！", "info");
+          } else if (pythonNextMove) {
+            const oldBody = [...pythonBody];
+            const newHead = pythonNextMove;
+            const isCollision = newGrid[newHead.r][newHead.c] !== "";
+            
+            const newBody = [newHead, oldBody[0], oldBody[1], oldBody[2]];
+            setPythonBody(newBody);
+
+            const oldTail = oldBody[3];
+            newGrid[oldTail.r][oldTail.c] = "";
+            
+            setInkCells((prev) => ({
+              ...prev,
+              [`${oldTail.r},${oldTail.c}`]: 3
+            }));
+
+            newGrid[newBody[0].r][newBody[0].c] = "竹";
+            newGrid[newBody[1].r][newBody[1].c] = "簡";
+            newGrid[newBody[2].r][newBody[2].c] = "巨";
+            newGrid[newBody[3].r][newBody[3].c] = "蟒";
+
+            newBody.forEach((b) => {
+              delete newCellOwners[`${b.r},${b.c}`];
+            });
+
+            if (isCollision) {
+              dealDamageToBoss = true;
+              bossDamage = 150;
+              setPythonStunned(true);
+              addLog(`💥 【巨蟒撞擊】 【竹簡巨蟒】在前進時撞上了您的成語字元，受到 150 點傷害並陷入暈眩！`, "error");
+            } else {
+              addLog(`🐍 【竹簡巨蟒】向前爬行了一格，並在尾部 ${COL_LABELS[oldTail.c]}${oldTail.r + 1} 留下了黑色墨跡！`, "info");
+            }
+
+            const nextM = getPythonNextMove(newBody, newGrid, rockCells);
+            setPythonNextMove(nextM);
           }
         }
       }
@@ -1395,6 +1544,22 @@ export default function Home() {
           });
         }
       }
+    }
+
+    // Decrement inkCells countdown
+    if (gameMode === "dungeon") {
+      setInkCells((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const key in next) {
+          next[key]--;
+          changed = true;
+          if (next[key] <= 0) {
+            delete next[key];
+          }
+        }
+        return changed ? next : prev;
+      });
     }
 
     // Relic: 細胞自噬 (autophagy)
@@ -1518,7 +1683,7 @@ export default function Home() {
           newGrid[centerIdx + 1][centerIdx] = "米";
           newGrid[centerIdx + 1][centerIdx + 1] = "巴";
           addLog("⚠️ 【警告】第一章 BOSS【贅字史萊姆】降臨！牠吞噬了網格中央 3x3 空間，成為新的阿米巴核心！", "error");
-        } else {
+        } else if (chapter === 2) {
           // Clear the area first
           newGrid[centerIdx - 1][centerIdx] = "沙";
           newGrid[centerIdx][centerIdx] = "漏";
@@ -1527,6 +1692,27 @@ export default function Home() {
           newGrid[centerIdx + 1][centerIdx] = "星";
           newGrid[centerIdx + 1][centerIdx + 1] = "⏳";
           addLog("⚠️ 【警告】第二章 BOSS【沙漏文曲星】降臨！牠佔領了網格中央金字塔型空間，時空之砂開始逆流！", "error");
+        } else if (chapter === 3) {
+          // Spawn Chapter 3 Boss: 竹簡巨蟒 (length 4 snake)
+          newGrid[centerIdx][centerIdx] = "竹";
+          newGrid[centerIdx][centerIdx - 1] = "簡";
+          newGrid[centerIdx][centerIdx - 2] = "巨";
+          newGrid[centerIdx][centerIdx - 3] = "蟒";
+          
+          const initialBody = [
+            { r: centerIdx, c: centerIdx },
+            { r: centerIdx, c: centerIdx - 1 },
+            { r: centerIdx, c: centerIdx - 2 },
+            { r: centerIdx, c: centerIdx - 3 }
+          ];
+          setPythonBody(initialBody);
+          setPythonStunned(false);
+          setInkCells({});
+          
+          const nextM = getPythonNextMove(initialBody, newGrid, rockCells);
+          setPythonNextMove(nextM);
+          
+          addLog("⚠️ 【警告】第三章 BOSS【竹簡巨蟒】降臨！牠長度為 4 格（竹簡巨蟒），正在網格中爬行，游動過處將留下墨跡！", "error");
         }
 
         if (chapter === 1) {
@@ -1535,13 +1721,18 @@ export default function Home() {
               delete newCellOwners[`${r},${c}`];
             }
           }
-        } else {
+        } else if (chapter === 2) {
           delete newCellOwners[`${centerIdx - 1},${centerIdx}`];
           delete newCellOwners[`${centerIdx},${centerIdx}`];
           delete newCellOwners[`${centerIdx},${centerIdx + 1}`];
           delete newCellOwners[`${centerIdx + 1},${centerIdx - 1}`];
           delete newCellOwners[`${centerIdx + 1},${centerIdx}`];
           delete newCellOwners[`${centerIdx + 1},${centerIdx + 1}`];
+        } else if (chapter === 3) {
+          delete newCellOwners[`${centerIdx},${centerIdx}`];
+          delete newCellOwners[`${centerIdx},${centerIdx - 1}`];
+          delete newCellOwners[`${centerIdx},${centerIdx - 2}`];
+          delete newCellOwners[`${centerIdx},${centerIdx - 3}`];
         }
         setGrid(newGrid);
         setCellOwners(newCellOwners);
@@ -2278,9 +2469,9 @@ export default function Home() {
                   <div className="w-full max-w-xl mx-auto mb-4 bg-zinc-950/80 border border-red-500/30 rounded-2xl p-4 shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-pulse text-text-primary">
                     <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xl animate-bounce">{chapter === 1 ? "👾" : "⏳"}</span>
+                        <span className="text-xl animate-bounce">{chapter === 1 ? "👾" : chapter === 2 ? "⏳" : "🐍"}</span>
                         <span className="text-sm font-black text-red-500 tracking-wider">
-                          第 {chapter} 章 BOSS：{chapter === 1 ? "贅字史萊姆" : "沙漏文曲星"}
+                          第 {chapter} 章 BOSS：{chapter === 1 ? "贅字史萊姆" : chapter === 2 ? "沙漏文曲星" : "竹簡巨蟒"}
                         </span>
                       </div>
                       <span className="text-xs font-mono font-bold text-red-400">{bossHp} / {bossMaxHp} HP</span>
@@ -2292,7 +2483,7 @@ export default function Home() {
                       ></div>
                     </div>
                     <p className="text-[10px] text-red-400/80 text-center mt-1.5 font-medium select-none">
-                      ⚠️ 提示：在 BOSS 核心（中央區域）相鄰的格子放置成語即可造成傷害{chapter === 2 ? "；交叉穿過時空炸彈格解鎖可造成雙倍傷害且不受距離限制" : ""}！
+                      ⚠️ 提示：{chapter === 3 ? "在預期路徑（紅框🎯）佈置成語進行攔截，或讓巨蟒撞擊您的成語字元，均可造成傷害並使其暈眩！" : `在 BOSS 核心（中央區域）相鄰的格子放置成語即可造成傷害${chapter === 2 ? "；交叉穿過時空炸彈格解鎖可造成雙倍傷害且不受距離限制" : ""}！`}
                     </p>
                   </div>
                 )}
@@ -2367,15 +2558,21 @@ export default function Home() {
                             }
 
                             const isRock = rockCells.has(`${rIdx},${cIdx}`);
+                            const isInk = gameMode === "dungeon" && inkCells[`${rIdx},${cIdx}`] > 0;
+                            const isPythonNextMoveCell = bossActive && chapter === 3 && pythonNextMove && pythonNextMove.r === rIdx && pythonNextMove.c === cIdx;
                             const size = grid.length;
                             const centerIdx = Math.floor(size / 2);
                             const isBossCell = bossActive && (
                               chapter === 1
                                 ? (rIdx >= centerIdx - 1 && rIdx <= centerIdx + 1 && cIdx >= centerIdx - 1 && cIdx <= centerIdx + 1)
-                                : (
+                                : chapter === 2
+                                ? (
                                     (rIdx === centerIdx - 1 && cIdx === centerIdx) ||
                                     (rIdx === centerIdx && (cIdx === centerIdx || cIdx === centerIdx + 1)) ||
                                     (rIdx === centerIdx + 1 && (cIdx === centerIdx - 1 || cIdx === centerIdx || cIdx === centerIdx + 1))
+                                  )
+                                : (
+                                    pythonBody.some((b) => b.r === rIdx && b.c === cIdx)
                                   )
                             );
                             const isBombCell = activeBomb && activeBomb.r === rIdx && activeBomb.c === cIdx;
@@ -2392,6 +2589,10 @@ export default function Home() {
                               cellBgClass = "bg-zinc-900/90 border-red-950/60 shadow-inner";
                               borderClass = "border-red-900/40";
                               textClass = "text-red-500/70 font-black font-mono";
+                            } else if (isInk) {
+                              cellBgClass = "bg-zinc-900 border-zinc-950 shadow-[inset_0_0_8px_rgba(0,0,0,0.9)]";
+                              borderClass = "border-black";
+                              textClass = "text-zinc-600 font-extrabold";
                             } else if (cellValue) {
                               cellBgClass = "bg-cell-bg-filled";
                               borderClass = "border-cell-border-filled";
@@ -2437,6 +2638,7 @@ export default function Home() {
                                 disabled={gameState !== "playing"}
                                 onClick={() => {
                                   if (isRock) return;
+                                  if (isInk) return;
                                   if (selectedCell?.row === rIdx && selectedCell?.col === cIdx) {
                                     setDirection((prev) => (prev === "H" ? "V" : "H"));
                                   } else {
@@ -2445,9 +2647,9 @@ export default function Home() {
                                 }}
                                 style={{ animationDelay }}
                                 className={`w-7 h-7 sm:w-10 sm:h-10 rounded flex items-center justify-center text-xs sm:text-base border transition-all duration-150 active:scale-95 ${cellBgClass} ${borderClass} ${textClass}${extraClass} relative select-none ${
-                                  isRock ? "cursor-not-allowed" : "cursor-pointer"
+                                  (isRock || isInk) ? "cursor-not-allowed" : "cursor-pointer"
                                 } ${
-                                  !cellValue && !isRock && gameState === "playing" ? "hover:border-cyan-500/40 hover:bg-cyan-500/5" : ""
+                                  !cellValue && !isRock && !isInk && gameState === "playing" ? "hover:border-cyan-500/40 hover:bg-cyan-500/5" : ""
                                 }`}
                               >
                                 {cellValue || previewChar}
@@ -2497,6 +2699,23 @@ export default function Home() {
                                 {isBombCell && activeBomb && (
                                   <span className="absolute -bottom-1 -right-1 text-[8px] sm:text-[9px] font-black leading-none text-red-500 bg-black/80 px-1 py-0.5 rounded border border-red-500 animate-pulse z-10">
                                     ⏳{activeBomb.timeLeft}s
+                                  </span>
+                                )}
+
+                                {/* Ink cell countdown badge */}
+                                {isInk && (
+                                  <span className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs text-zinc-500 font-black font-mono select-none">
+                                    墨({inkCells[`${rIdx},${cIdx}`]})
+                                  </span>
+                                )}
+
+                                {/* Python Next Move target badge */}
+                                {isPythonNextMoveCell && (
+                                  <div className="absolute inset-0 border-2 border-red-500 animate-ping rounded pointer-events-none" />
+                                )}
+                                {isPythonNextMoveCell && (
+                                  <span className="absolute -top-1 -right-1 text-[10px] sm:text-xs text-red-500 z-10 animate-bounce">
+                                    🎯
                                   </span>
                                 )}
 
@@ -3092,6 +3311,9 @@ export default function Home() {
                   </p>
                   <p>
                     ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每 3 回合鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
+                  </p>
+                  <p>
+                    🐍 <strong className="text-text-primary">第三章【竹簡巨蟒】</strong>：巨蟒長度為 4 格（由「竹簡巨蟒」字元組成）在網格中追獵游動。移動過後會殘留 3 回合「黑色墨跡」（不可填字）。在巨蟒前進的「預期路徑（紅框🎯）」上佈置成語攔截，或前進時撞擊成語字元，均可對其造成 150 點傷害並使其暈眩停頓一回合。
                   </p>
                   <p>
                     🏆 <strong className="text-text-primary">遺物系統</strong>：達到里程碑得分時（第一章 100/200 分，第二章 200/400 分）觸發遺物三選一，獲得強大的被動增益！
