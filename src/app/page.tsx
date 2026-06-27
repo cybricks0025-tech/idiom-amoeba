@@ -718,7 +718,9 @@ export default function Home() {
     // Load idioms wordlist for quick validation
     addLog("正在載入成語檢索庫...", "system");
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-    fetch(`${basePath}/idioms_words.json`)
+    const version = "1.18"; // Cache-busting version parameter matching UI version
+    
+    fetch(`${basePath}/idioms_words.json?v=${version}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load idioms words");
         return res.json();
@@ -735,7 +737,7 @@ export default function Home() {
       });
 
     // Load full details lazily in background
-    fetch(`${basePath}/idioms.json`)
+    fetch(`${basePath}/idioms.json?v=${version}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load idioms details");
         return res.json();
@@ -752,7 +754,7 @@ export default function Home() {
       });
 
     // Load character mapping for simplified-to-traditional conversion
-    fetch(`${basePath}/simplified_to_traditional.json`)
+    fetch(`${basePath}/simplified_to_traditional.json?v=${version}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load character mapping");
         return res.json();
