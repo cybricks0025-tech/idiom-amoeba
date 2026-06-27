@@ -15,7 +15,7 @@ interface PlacedIdiom {
   word: string;
   row: number; // 0-indexed
   col: number; // 0-indexed
-  direction: "H" | "V";
+  direction: "H" | "V" | "HR" | "VR";
   player: 1 | 2;
   score: number;
   combo: number;
@@ -87,7 +87,7 @@ export default function Home() {
   );
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   const [inputWord, setInputWord] = useState<string>("");
-  const [direction, setDirection] = useState<"H" | "V">("H");
+  const [direction, setDirection] = useState<"H" | "V" | "HR" | "VR">("H");
   const [history, setHistory] = useState<PlacedIdiom[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   // Visual effects: track recently placed cells for flash animation
@@ -625,14 +625,18 @@ export default function Home() {
           pos = word.indexOf(char, pos + 1);
         }
 
-        // Try both directions for all matching letter indices
-        const shuffledDirs = ["H", "V"].sort(() => Math.random() - 0.5);
+        // Try all four directions for all matching letter indices
+        const shuffledDirs: Array<"H" | "V" | "HR" | "VR"> = ["H", "V", "HR", "VR"].sort(() => Math.random() - 0.5) as Array<"H" | "V" | "HR" | "VR">;
         for (const dir of shuffledDirs) {
           for (const matchIdx of charIndices) {
-            const startR = dir === "H" ? r : r - matchIdx;
-            const startC = dir === "H" ? c - matchIdx : c;
+            // startR/startC = position of word[0] given char[matchIdx] is at (r, c)
+            let startR: number, startC: number;
+            if (dir === "H")  { startR = r; startC = c - matchIdx; }
+            else if (dir === "V")  { startR = r - matchIdx; startC = c; }
+            else if (dir === "HR") { startR = r; startC = c + matchIdx; }
+            else                   { startR = r + matchIdx; startC = c; } // VR
 
-            const coords = getCoordinatesForWord(startR, startC, word.length, dir as "H" | "V");
+            const coords = getCoordinatesForWord(startR, startC, word.length, dir);
 
             const inBounds = coords.every((co) => co.r >= 0 && co.r < grid.length && co.c >= 0 && co.c < (grid[0]?.length || 15));
             if (!inBounds) continue;
@@ -649,9 +653,10 @@ export default function Home() {
             if (hasClash) continue;
 
             // Found a valid placement!
+            const dirLabel = dir === "H" ? "橫向→" : dir === "V" ? "縱向↓" : dir === "HR" ? "逆橫←" : "逆縱↑";
             setInputWord(word);
             setSelectedCell({ row: startR, col: startC });
-            setDirection(dir as "H" | "V");
+            setDirection(dir);
 
             // Deduct life / score / hint
             if (gameMode === "dungeon") {
@@ -660,7 +665,7 @@ export default function Home() {
                 setPreparedBonusActive(true);
               }
               addLog(
-                `【系統提示】使用提示！剩餘提示次數：${hintsCount - 1}/${maxHints}。建議在 ${COL_LABELS[startC]}${startR + 1} (${dir === "H" ? "橫向" : "縱向"}) 放置成語「${word}」。已自動為您填寫！`,
+                `【系統提示】使用提示！剩餘提示次數：${hintsCount - 1}/${maxHints}。建議在 ${COL_LABELS[startC]}${startR + 1} (${dirLabel}) 放置成語「${word}」。已自動為您填寫！`,
                 "system"
               );
               if (relics.includes("prepared")) {
@@ -842,12 +847,13 @@ export default function Home() {
     row: number,
     col: number,
     wordLength: number,
-    dir: "H" | "V"
+    dir: "H" | "V" | "HR" | "VR"
   ) => {
     const coords = [];
     for (let i = 0; i < wordLength; i++) {
-      const r = dir === "H" ? row : row + i;
-      const c = dir === "H" ? col + i : col;
+      // H: left→right, V: top→bottom, HR: right→left, VR: bottom→top
+      const r = (dir === "H" || dir === "HR") ? row : (dir === "V" ? row + i : row - i);
+      const c = (dir === "V" || dir === "VR") ? col : (dir === "H" ? col + i : col - i);
       coords.push({ r, c });
     }
     return coords;
@@ -930,11 +936,11 @@ export default function Home() {
     } else if (e.key === " " || e.key === "Spacebar") {
       if (inputWord.length === 0) {
         e.preventDefault();
-        setDirection((prev) => (prev === "H" ? "V" : "H"));
+        setDirection((prev) => prev === "H" ? "V" : prev === "V" ? "HR" : prev === "HR" ? "VR" : "H");
       }
     } else if (e.key === "Tab") {
       e.preventDefault();
-      setDirection((prev) => (prev === "H" ? "V" : "H"));
+      setDirection((prev) => prev === "H" ? "V" : prev === "V" ? "HR" : prev === "HR" ? "VR" : "H");
     }
   };
 
@@ -949,9 +955,17 @@ export default function Home() {
     return history.filter((item) => {
       const len = item.word.length;
       if (item.direction === "H") {
+        // left→right: cols item.col … item.col+len-1
         return item.row === row && col >= item.col && col < item.col + len;
-      } else {
+      } else if (item.direction === "V") {
+        // top→bottom: rows item.row … item.row+len-1
         return item.col === col && row >= item.row && row < item.row + len;
+      } else if (item.direction === "HR") {
+        // right→left: cols item.col … item.col-len+1
+        return item.row === row && col <= item.col && col > item.col - len;
+      } else {
+        // VR bottom→top: rows item.row … item.row-len+1
+        return item.col === col && row <= item.row && row > item.row - len;
       }
     });
   };
@@ -2646,7 +2660,7 @@ export default function Home() {
                                   if (isRock) return;
                                   if (isInk) return;
                                   if (selectedCell?.row === rIdx && selectedCell?.col === cIdx) {
-                                    setDirection((prev) => (prev === "H" ? "V" : "H"));
+                                    setDirection((prev) => prev === "H" ? "V" : prev === "V" ? "HR" : prev === "HR" ? "VR" : "H");
                                   } else {
                                     setSelectedCell({ row: rIdx, col: cIdx });
                                   }
@@ -2697,7 +2711,7 @@ export default function Home() {
                                       previewValid ? "text-green-400" : "text-yellow-400"
                                     }`}
                                   >
-                                    {direction === "H" ? "▶" : "▼"}
+                                    {direction === "H" ? "▶" : direction === "V" ? "▼" : direction === "HR" ? "◀" : "▲"}
                                   </span>
                                 )}
 
@@ -2753,8 +2767,13 @@ export default function Home() {
                         {COL_LABELS[selectedCell.col]}{selectedCell.row + 1}
                       </strong>
                       <span className="text-text-secondary/60">•</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${direction === "H" ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"}`}>
-                        {direction === "H" ? "▶ 橫向" : "▼ 縱向"}
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          direction === "H"  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                        : direction === "V"  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                        : direction === "HR" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                      }`}>
+                        {direction === "H" ? "▶ 橫向" : direction === "V" ? "▼ 縱向" : direction === "HR" ? "◀ 逆橫" : "▲ 逆縱"}
                       </span>
                       {!inputWord && (
                         <span className="text-text-secondary/40 text-[10px]">← 輸入成語可預覽字序①②③④</span>
@@ -2847,7 +2866,7 @@ export default function Home() {
                               : "bg-input-bg/50 border-input-border text-text-secondary hover:text-text-primary hover:bg-input-bg disabled:opacity-50 disabled:cursor-not-allowed"
                           }`}
                         >
-                          <span>◀▶ 橫向排列 (H)</span>
+                          <span>▶ 橫向 (→)</span>
                         </button>
                         <button
                           type="button"
@@ -2859,7 +2878,31 @@ export default function Home() {
                               : "bg-input-bg/50 border-input-border text-text-secondary hover:text-text-primary hover:bg-input-bg disabled:opacity-50 disabled:cursor-not-allowed"
                           }`}
                         >
-                          <span>▲▼ 縱向排列 (V)</span>
+                          <span>▼ 縱向 (↓)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDirection("HR")}
+                          disabled={!selectedCell || gameState !== "playing"}
+                          className={`py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            direction === "HR"
+                              ? "bg-rose-600 text-white border-transparent shadow-[0_0_8px_rgba(244,63,94,0.25)] dark:bg-rose-500"
+                              : "bg-input-bg/50 border-input-border text-text-secondary hover:text-text-primary hover:bg-input-bg disabled:opacity-50 disabled:cursor-not-allowed"
+                          }`}
+                        >
+                          <span>◀ 逆橫 (←)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDirection("VR")}
+                          disabled={!selectedCell || gameState !== "playing"}
+                          className={`py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                            direction === "VR"
+                              ? "bg-amber-600 text-white border-transparent shadow-[0_0_8px_rgba(217,119,6,0.25)] dark:bg-amber-500"
+                              : "bg-input-bg/50 border-input-border text-text-secondary hover:text-text-primary hover:bg-input-bg disabled:opacity-50 disabled:cursor-not-allowed"
+                          }`}
+                        >
+                          <span>▲ 逆縱 (↑)</span>
                         </button>
                       </div>
                     </div>
@@ -3018,9 +3061,20 @@ export default function Home() {
                               <h3 className="text-xl font-extrabold text-pink-600 dark:text-pink-400 tracking-wider drop-shadow-[0_0_6px_rgba(244,63,94,0.15)] dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.3)]">
                                 {item.word}
                               </h3>
-                              <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20">
-                                玩家放置
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {details && details.source && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                                    details.source === "教育部《成語典》"
+                                      ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border-emerald-500/20"
+                                      : "bg-blue-500/10 text-blue-700 border border-blue-500/20 dark:bg-blue-950/80 dark:text-blue-400 dark:border-blue-500/20"
+                                  }`}>
+                                    {details.source}
+                                  </span>
+                                )}
+                                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-pink-500/10 text-pink-700 border border-pink-500/20 dark:bg-pink-950/80 dark:text-pink-400 dark:border-pink-500/20">
+                                  玩家放置
+                                </span>
+                              </div>
                             </div>
 
                             {/* Pinyin */}
@@ -3043,19 +3097,53 @@ export default function Home() {
                             </div>
 
                             {/* Derivation / Origin */}
-                            {details && details.derivation && (
+                            {details && details.derivation && details.derivation !== "無" && (
                               <div className="flex flex-col gap-1 mt-1">
                                 <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">典故 Origin</span>
-                                <p className="text-[11px] text-text-secondary leading-relaxed bg-input-bg/20 p-2 rounded border border-input-border/30">
+                                <p className="text-[11px] text-text-secondary leading-relaxed bg-input-bg/20 p-2 rounded border border-input-border/30 whitespace-pre-wrap">
                                   {details.derivation}
                                 </p>
+                              </div>
+                            )}
+
+                            {/* Synonyms & Antonyms */}
+                            {details && (details.synonyms || details.antonyms) && (
+                              <div className="grid grid-cols-2 gap-2 mt-1">
+                                {details.synonyms && (
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">近義成語 Synonyms</span>
+                                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/5 p-1.5 rounded border border-emerald-500/10">
+                                      {details.synonyms}
+                                    </p>
+                                  </div>
+                                )}
+                                {details.antonyms && (
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">反義成語 Antonyms</span>
+                                    <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium bg-rose-500/5 p-1.5 rounded border border-rose-500/10">
+                                      {details.antonyms}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Examples */}
+                            {details && details.examples && details.examples.length > 0 && (
+                              <div className="flex flex-col gap-1 mt-1">
+                                <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider font-mono">用法例句 Examples</span>
+                                <ul className="text-xs text-text-primary leading-relaxed bg-input-bg/30 p-2 rounded border border-input-border/40 list-disc list-inside flex flex-col gap-1">
+                                  {details.examples.map((ex: string, i: number) => (
+                                    <li key={i} className="pl-1">{ex}</li>
+                                  ))}
+                                </ul>
                               </div>
                             )}
 
                             {/* Score and Placement Details */}
                             <div className="flex justify-between items-center text-[10px] text-text-secondary font-mono mt-1 bg-input-bg/30 px-2 py-1 rounded">
                               <span>獲得分數: <strong className="text-cyan-600 dark:text-cyan-400">+{item.score}分</strong></span>
-                              <span>擺放方向: {item.direction === "H" ? "橫向" : "縱向"}</span>
+                              <span>擺放方向: {item.direction === "H" ? "▶橫向" : item.direction === "V" ? "▼縱向" : item.direction === "HR" ? "◀逆橫" : "▲逆縱"}</span>
                             </div>
                           </div>
                         );
@@ -3156,7 +3244,7 @@ export default function Home() {
                           </div>
                           <div className="flex items-center gap-4 text-[10px] text-text-secondary font-mono">
                             <span>+{item.score}分</span>
-                            <span>起點: {COL_LABELS[item.col]}{item.row + 1} ({item.direction === "H" ? "橫向" : "縱向"})</span>
+                            <span>起點: {COL_LABELS[item.col]}{item.row + 1} ({item.direction === "H" ? "▶橫" : item.direction === "V" ? "▼縱" : item.direction === "HR" ? "◀逆橫" : "▲逆縱"})</span>
                           </div>
                         </div>
                       ))
