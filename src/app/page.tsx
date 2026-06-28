@@ -144,6 +144,15 @@ export default function Home() {
   const [pythonStunned, setPythonStunned] = useState<boolean>(false);
   const [inkCells, setInkCells] = useState<Record<string, number>>({});
 
+  // --- Boss Tutorial States ---
+  const [showBossTutorial, setShowBossTutorial] = useState<boolean>(false);
+  const [hasSeenBossTutorial, setHasSeenBossTutorial] = useState<boolean>(true); // default true till mounted
+
+  useEffect(() => {
+    const seen = localStorage.getItem("has_seen_boss_tutorial") === "true";
+    setHasSeenBossTutorial(seen);
+  }, []);
+
   const convertToTraditional = (str: string) => {
     return str.split("").map((char) => charMap[char] || char).join("");
   };
@@ -1676,12 +1685,54 @@ export default function Home() {
       if (oldChapterScore < targetScore && newChapterScore >= targetScore) {
         // Trigger BOSS
         setBossActive(true);
-        const maxBossHp = chapter === 1 ? 300 : 400; // Chapter 1: 300, Chapter 2: 400
+        const maxBossHp = chapter === 1 ? 300 : chapter === 2 ? 400 : 500;
         setBossHp(maxBossHp);
         setBossMaxHp(maxBossHp);
 
         const size = newGrid.length;
         const centerIdx = Math.floor(size / 2);
+
+        // --- Battlefield Clearing: Keep only 3 random idioms from the current chapter ---
+        const currentChapterHistory = history.filter((h) => h.chapter === chapter);
+        const shuffledHistory = [...currentChapterHistory].sort(() => Math.random() - 0.5);
+        const keptHistory = shuffledHistory.slice(0, 3);
+        
+        const cleanGrid = Array(size).fill(null).map(() => Array(size).fill(""));
+        const cleanCellOwners: Record<string, 1 | 2> = {};
+        
+        keptHistory.forEach((item) => {
+          const coords = getCoordinatesForWord(item.row, item.col, item.word.length, item.direction);
+          coords.forEach((coord, idx) => {
+            if (coord.r >= 0 && coord.r < size && coord.c >= 0 && coord.c < size) {
+              cleanGrid[coord.r][coord.c] = item.word[idx];
+              cleanCellOwners[`${coord.r},${coord.c}`] = item.player;
+            }
+          });
+        });
+        
+        const otherChaptersHistory = history.filter((h) => h.chapter !== chapter);
+        setHistory([...keptHistory, ...otherChaptersHistory]);
+        
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            newGrid[r][c] = cleanGrid[r][c];
+          }
+        }
+        for (const key in newCellOwners) {
+          delete newCellOwners[key];
+        }
+        for (const key in cleanCellOwners) {
+          newCellOwners[key] = cleanCellOwners[key];
+        }
+
+        addLog(`🧹 【戰場清理】遭遇 BOSS！為了留出足夠戰鬥空間，已清理盤面，隨機保留 3 組成語！`, "info");
+
+        // Trigger First-Time Boss Tutorial
+        if (!hasSeenBossTutorial) {
+          setShowBossTutorial(true);
+          setHasSeenBossTutorial(true);
+          localStorage.setItem("has_seen_boss_tutorial", "true");
+        }
         
         if (chapter === 1) {
           newGrid[centerIdx - 1][centerIdx - 1] = "贅";
@@ -3543,6 +3594,61 @@ export default function Home() {
               className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-all active:scale-95 shadow-[0_4px_12px_rgba(239,68,68,0.2)] cursor-pointer"
             >
               我知道了
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* First-time Boss Tutorial Modal */}
+      {showBossTutorial && (
+        <div 
+          className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          onClick={() => setShowBossTutorial(false)}
+        >
+          <div 
+            className="bg-panel-bg border border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.4)] text-text-primary select-none max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="text-5xl mb-3 filter drop-shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse">
+                👾
+              </div>
+              <h3 className="text-2xl font-black bg-gradient-to-r from-red-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-4">
+                BOSS 遭遇戰新手教學
+              </h3>
+            </div>
+            
+            <div className="space-y-4 text-xs sm:text-sm text-text-secondary leading-relaxed mb-6 font-medium">
+              <div className="bg-red-500/5 border border-red-500/10 p-3 rounded-xl">
+                <h4 className="font-bold text-red-400 mb-1">⚔️ 如何對 BOSS 造成傷害？</h4>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li><strong>第一章【贅字史萊姆】/ 第二章【沙漏文曲星】</strong>：在 BOSS 核心相鄰的格子放置成語即可造成傷害！</li>
+                  <li><strong>第三章【竹簡巨蟒】</strong>：在巨蟒前進的預期路徑（紅框🎯）上佈置成語進行攔截，或讓巨蟒前進時撞擊成語字元，均可造成傷害並使其暈眩！</li>
+                </ul>
+              </div>
+
+              <div className="bg-purple-500/5 border border-purple-500/10 p-3 rounded-xl">
+                <h4 className="font-bold text-purple-400 mb-1">💡 遭遇戰戰場清理機制</h4>
+                <p className="text-xs">
+                  為了給您留出足夠的戰鬥空間，遭遇戰開始時，系統已自動清理盤面，<strong>僅隨機保留了 3 組成語</strong>！其他成語已全數清除。
+                </p>
+              </div>
+
+              <div className="bg-cyan-500/5 border border-cyan-500/10 p-3 rounded-xl">
+                <h4 className="font-bold text-cyan-400 mb-1">🌟 BOSS 特殊機制</h4>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>第二章：時空炸彈可透過成語交叉穿過解除，並造成雙倍無視距離的傷害。</li>
+                  <li>第三章：巨蟒爬行過後會留下 3 回合「黑色墨跡」封鎖格子。</li>
+                </ul>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowBossTutorial(false)}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-500 hover:to-purple-500 text-white font-black text-sm transition-all active:scale-95 shadow-[0_4px_15px_rgba(239,68,68,0.3)] cursor-pointer text-center"
+            >
+              我理解了，開始戰鬥！
             </button>
           </div>
         </div>
