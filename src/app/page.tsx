@@ -146,12 +146,6 @@ export default function Home() {
 
   // --- Boss Tutorial States ---
   const [showBossTutorial, setShowBossTutorial] = useState<boolean>(false);
-  const [hasSeenBossTutorial, setHasSeenBossTutorial] = useState<boolean>(true); // default true till mounted
-
-  useEffect(() => {
-    const seen = localStorage.getItem("has_seen_boss_tutorial") === "true";
-    setHasSeenBossTutorial(seen);
-  }, []);
 
   const convertToTraditional = (str: string) => {
     return str.split("").map((char) => charMap[char] || char).join("");
@@ -495,25 +489,25 @@ export default function Home() {
     if (activeMode === "free") {
       setTimeLeft(90);
       setScores({ p1: 100, p2: 0 });
-      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      const initialNutrients = spawnNutrients(8, newGrid, [], false);
       setNutrients(initialNutrients);
       addLog(`【自由練習模式】已開始！首詞為「${randomWord}」，無時間限制。`, "system");
     } else if (activeMode === "challenge") {
       setTimeLeft(120);
       setScores({ p1: 100, p2: 0 });
-      const initialNutrients = spawnNutrients(5, newGrid, [], true);
+      const initialNutrients = spawnNutrients(8, newGrid, [], true);
       setNutrients(initialNutrients);
       addLog(`【積分挑戰模式】已開始！首詞為「${randomWord}」，限時 120 秒，吃掉 ⏰ 或正確輸入成語可延長時間。`, "system");
     } else if (activeMode === "battle") {
       setTimeLeft(60);
       setScores({ p1: 0, p2: 0 });
-      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      const initialNutrients = spawnNutrients(8, newGrid, [], false);
       setNutrients(initialNutrients);
       addLog(`【雙人對抗生存模式】已開始！首詞為「${randomWord}」歸藍色阿米巴，目前輪到藍色阿米巴。雙方各有 5 條生命，每回合思考時間為 60 秒！`, "system");
     } else if (activeMode === "dungeon") {
       setTimeLeft(90);
       setScores({ p1: 0, p2: 0 });
-      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      const initialNutrients = spawnNutrients(8, newGrid, [], false);
       setNutrients(initialNutrients);
       addLog(`【地牢冒險模式】已開始！第一章：字林初探。首詞為「${randomWord}」。`, "system");
     }
@@ -712,7 +706,7 @@ export default function Home() {
   // Initialize game on mount
   useEffect(() => {
     // Initial feed
-    const initNutrients = spawnNutrients(5, grid, [], false);
+    const initNutrients = spawnNutrients(8, grid, [], false);
     setNutrients(initNutrients);
     addLog("歡迎來到成語阿米巴！點擊網格任一位置為起點，輸入 4 字成語開始接龍。", "system");
 
@@ -1077,7 +1071,7 @@ export default function Home() {
       setDirection("V");
       
       // Spawn nutrients
-      const initialNutrients = spawnNutrients(5, newGrid, [], false);
+      const initialNutrients = spawnNutrients(8, newGrid, [], false);
       setNutrients(initialNutrients);
       
       if (relics.includes("radar")) {
@@ -1471,23 +1465,31 @@ export default function Home() {
             const newHead = pythonNextMove;
             const isCollision = newGrid[newHead.r][newHead.c] !== "";
             
-            const newBody = [newHead, oldBody[0], oldBody[1], oldBody[2]];
+            // Growing: if collision, keep tail (grows by 1). Otherwise, slice to keep same length.
+            const newBody = isCollision 
+              ? [newHead, ...oldBody] 
+              : [newHead, ...oldBody.slice(0, oldBody.length - 1)];
             setPythonBody(newBody);
 
-            const oldTail = oldBody[3];
-            newGrid[oldTail.r][oldTail.c] = "";
-            
-            setInkCells((prev) => ({
-              ...prev,
-              [`${oldTail.r},${oldTail.c}`]: 3
-            }));
+            if (!isCollision) {
+              const oldTail = oldBody[oldBody.length - 1];
+              newGrid[oldTail.r][oldTail.c] = "";
+              setInkCells((prev) => ({
+                ...prev,
+                [`${oldTail.r},${oldTail.c}`]: 3
+              }));
+            }
 
-            newGrid[newBody[0].r][newBody[0].c] = "竹";
-            newGrid[newBody[1].r][newBody[1].c] = "簡";
-            newGrid[newBody[2].r][newBody[2].c] = "巨";
-            newGrid[newBody[3].r][newBody[3].c] = "蟒";
+            const getPythonChar = (idx: number) => {
+              if (idx === 0) return "竹";
+              if (idx === 1) return "簡";
+              if (idx === 2) return "巨";
+              if (idx === 3) return "蟒";
+              return "贅";
+            };
 
-            newBody.forEach((b) => {
+            newBody.forEach((b, idx) => {
+              newGrid[b.r][b.c] = getPythonChar(idx);
               delete newCellOwners[`${b.r},${b.c}`];
             });
 
@@ -1495,8 +1497,9 @@ export default function Home() {
               dealDamageToBoss = true;
               bossDamage = 150;
               setPythonStunned(true);
-              addLog(`💥 【巨蟒撞擊】 【竹簡巨蟒】在前進時撞上了您的成語字元，受到 150 點傷害並陷入暈眩！`, "error");
+              addLog(`💥 【巨蟒吞噬】 【竹簡巨蟒】吞噬了您的成語字元，身體變長了 1 格！並受到 150 點傷害陷入暈眩！`, "error");
             } else {
+              const oldTail = oldBody[oldBody.length - 1];
               addLog(`🐍 【竹簡巨蟒】向前爬行了一格，並在尾部 ${COL_LABELS[oldTail.c]}${oldTail.r + 1} 留下了黑色墨跡！`, "info");
             }
 
@@ -1668,7 +1671,7 @@ export default function Home() {
     setTimeout(() => setLastPlacedCells(new Set()), 500);
 
     // Spawn replacement nutrients
-    const nextNutrients = spawnNutrients(5, newGrid, remainingNutrients, gameMode === "challenge");
+    const nextNutrients = spawnNutrients(8, newGrid, remainingNutrients, gameMode === "challenge");
     setNutrients(nextNutrients);
 
     // Switch turns in Battle Mode
@@ -1727,12 +1730,8 @@ export default function Home() {
 
         addLog(`🧹 【戰場清理】遭遇 BOSS！為了留出足夠戰鬥空間，已清理盤面，隨機保留 3 組成語！`, "info");
 
-        // Trigger First-Time Boss Tutorial
-        if (!hasSeenBossTutorial) {
-          setShowBossTutorial(true);
-          setHasSeenBossTutorial(true);
-          localStorage.setItem("has_seen_boss_tutorial", "true");
-        }
+        // Trigger Boss Tutorial (Unconditionally on every encounter)
+        setShowBossTutorial(true);
         
         if (chapter === 1) {
           newGrid[centerIdx - 1][centerIdx - 1] = "贅";
@@ -1755,17 +1754,21 @@ export default function Home() {
           newGrid[centerIdx + 1][centerIdx + 1] = "⏳";
           addLog("⚠️ 【警告】第二章 BOSS【沙漏文曲星】降臨！牠佔領了網格中央金字塔型空間，時空之砂開始逆流！", "error");
         } else if (chapter === 3) {
-          // Spawn Chapter 3 Boss: 竹簡巨蟒 (length 4 snake)
+          // Spawn Chapter 3 Boss: 竹簡巨蟒 (length 6 snake)
           newGrid[centerIdx][centerIdx] = "竹";
           newGrid[centerIdx][centerIdx - 1] = "簡";
           newGrid[centerIdx][centerIdx - 2] = "巨";
           newGrid[centerIdx][centerIdx - 3] = "蟒";
+          newGrid[centerIdx][centerIdx - 4] = "贅";
+          newGrid[centerIdx][centerIdx - 5] = "贅";
           
           const initialBody = [
             { r: centerIdx, c: centerIdx },
             { r: centerIdx, c: centerIdx - 1 },
             { r: centerIdx, c: centerIdx - 2 },
-            { r: centerIdx, c: centerIdx - 3 }
+            { r: centerIdx, c: centerIdx - 3 },
+            { r: centerIdx, c: centerIdx - 4 },
+            { r: centerIdx, c: centerIdx - 5 }
           ];
           setPythonBody(initialBody);
           setPythonStunned(false);
@@ -1774,7 +1777,7 @@ export default function Home() {
           const nextM = getPythonNextMove(initialBody, newGrid, rockCells);
           setPythonNextMove(nextM);
           
-          addLog("⚠️ 【警告】第三章 BOSS【竹簡巨蟒】降臨！牠長度為 4 格（竹簡巨蟒），正在網格中爬行，游動過處將留下墨跡！", "error");
+          addLog("⚠️ 【警告】第三章 BOSS【竹簡巨蟒】降臨！牠長度為 6 格（竹簡巨蟒贅贅），正在網格中爬行，游動過處將留下墨跡！", "error");
         }
 
         if (chapter === 1) {
@@ -1795,6 +1798,8 @@ export default function Home() {
           delete newCellOwners[`${centerIdx},${centerIdx - 1}`];
           delete newCellOwners[`${centerIdx},${centerIdx - 2}`];
           delete newCellOwners[`${centerIdx},${centerIdx - 3}`];
+          delete newCellOwners[`${centerIdx},${centerIdx - 4}`];
+          delete newCellOwners[`${centerIdx},${centerIdx - 5}`];
         }
         setGrid(newGrid);
         setCellOwners(newCellOwners);
@@ -1881,7 +1886,7 @@ export default function Home() {
     setDirection("V");
 
     // Spawn new nutrients around the grid
-    const nextNutrients = spawnNutrients(5, newGrid, nutrients.filter(n => !getCoordinatesForWord(centerRow, centerCol, randomWord.length, "H").some(c => c.r === n.r && c.c === n.c)), false);
+    const nextNutrients = spawnNutrients(8, newGrid, nutrients.filter(n => !getCoordinatesForWord(centerRow, centerCol, randomWord.length, "H").some(c => c.r === n.r && c.c === n.c)), false);
     setNutrients(nextNutrients);
 
     addLog(`成功放置首詞「${randomWord}」於網格中心 ${COL_LABELS[centerCol]}${centerRow + 1}，獲得 100 分！`, "success");
@@ -3599,56 +3604,80 @@ export default function Home() {
         </div>
       )}
 
-      {/* First-time Boss Tutorial Modal */}
+      {/* Boss Encounter Tutorial Modal (Chapter-specific and concise) */}
       {showBossTutorial && (
         <div 
-          className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4"
           onClick={() => setShowBossTutorial(false)}
         >
           <div 
-            className="bg-panel-bg border border-red-500/50 rounded-3xl p-6 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.4)] text-text-primary select-none max-h-[90vh] overflow-y-auto"
+            className="bg-panel-bg border border-red-500/40 rounded-3xl p-6 max-w-sm w-full shadow-[0_0_40px_rgba(239,68,68,0.3)] text-text-primary select-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-center">
-              <div className="text-5xl mb-3 filter drop-shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse">
-                👾
+            <div className="text-center mb-4">
+              <div className="text-4xl mb-2 filter drop-shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-bounce">
+                {chapter === 1 ? "👾" : chapter === 2 ? "⏳" : "🐍"}
               </div>
-              <h3 className="text-2xl font-black bg-gradient-to-r from-red-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-4">
-                BOSS 遭遇戰新手教學
+              <h3 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-500">
+                {chapter === 1 ? "第一章：贅字史萊姆" : chapter === 2 ? "第二章：沙漏文曲星" : "第三章：竹簡巨蟒"}
               </h3>
+              <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest mt-1">
+                // Boss Fight Tutorial //
+              </p>
             </div>
             
-            <div className="space-y-4 text-xs sm:text-sm text-text-secondary leading-relaxed mb-6 font-medium">
-              <div className="bg-red-500/5 border border-red-500/10 p-3 rounded-xl">
-                <h4 className="font-bold text-red-400 mb-1">⚔️ 如何對 BOSS 造成傷害？</h4>
-                <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li><strong>第一章【贅字史萊姆】/ 第二章【沙漏文曲星】</strong>：在 BOSS 核心相鄰的格子放置成語即可造成傷害！</li>
-                  <li><strong>第三章【竹簡巨蟒】</strong>：在巨蟒前進的預期路徑（紅框🎯）上佈置成語進行攔截，或讓巨蟒前進時撞擊成語字元，均可造成傷害並使其暈眩！</li>
-                </ul>
-              </div>
+            <div className="space-y-3 text-xs leading-relaxed mb-6 font-medium text-text-secondary">
+              {chapter === 1 && (
+                <>
+                  <div className="bg-red-500/5 border border-red-500/10 p-2.5 rounded-xl">
+                    <span className="font-bold text-red-400">⚔️ 進攻方式</span>
+                    <p className="text-[11px] mt-0.5">在 BOSS 核心（中央區域）<strong>相鄰的格子</strong>放置成語，即可造成傷害！</p>
+                  </div>
+                  <div className="bg-purple-500/5 border border-purple-500/10 p-2.5 rounded-xl">
+                    <span className="font-bold text-purple-400">⚠️ BOSS 技能</span>
+                    <p className="text-[11px] mt-0.5">史萊姆每回合會隨機噴灑「贅字封鎖格」（無法填字）。</p>
+                  </div>
+                </>
+              )}
 
-              <div className="bg-purple-500/5 border border-purple-500/10 p-3 rounded-xl">
-                <h4 className="font-bold text-purple-400 mb-1">💡 遭遇戰戰場清理機制</h4>
-                <p className="text-xs">
-                  為了給您留出足夠的戰鬥空間，遭遇戰開始時，系統已自動清理盤面，<strong>僅隨機保留了 3 組成語</strong>！其他成語已全數清除。
-                </p>
-              </div>
+              {chapter === 2 && (
+                <>
+                  <div className="bg-red-500/5 border border-red-500/10 p-2.5 rounded-xl">
+                    <span className="font-bold text-red-400">⚔️ 進攻與炸彈</span>
+                    <p className="text-[11px] mt-0.5">相鄰放置可造成傷害。每 3 回合會丟出「時空炸彈」，請用成語<strong>交叉穿過</strong>解鎖，可造成<strong>雙倍無視距離傷害</strong>！</p>
+                  </div>
+                  <div className="bg-purple-500/5 border border-purple-500/10 p-2.5 rounded-xl">
+                    <span className="font-bold text-purple-400">💥 未解鎖懲罰</span>
+                    <p className="text-[11px] mt-0.5">炸彈 20 秒倒數完會爆炸，扣除 1 生命並清除周圍 3x3 已填字格。</p>
+                  </div>
+                </>
+              )}
 
-              <div className="bg-cyan-500/5 border border-cyan-500/10 p-3 rounded-xl">
-                <h4 className="font-bold text-cyan-400 mb-1">🌟 BOSS 特殊機制</h4>
-                <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>第二章：時空炸彈可透過成語交叉穿過解除，並造成雙倍無視距離的傷害。</li>
-                  <li>第三章：巨蟒爬行過後會留下 3 回合「黑色墨跡」封鎖格子。</li>
-                </ul>
+              {chapter === 3 && (
+                <>
+                  <div className="bg-red-500/5 border border-red-500/10 p-2.5 rounded-xl">
+                    <span className="font-bold text-red-400">⚔️ 攔截與撞擊</span>
+                    <p className="text-[11px] mt-0.5">在巨蟒前進的<strong>預期路徑（紅框🎯）</strong>佈置成語進行<strong>攔截</strong>，或等牠<strong>撞擊</strong>您的字元，可造成 150 點傷害並使其<strong>暈眩停頓一回合</strong>！</p>
+                  </div>
+                  <div className="bg-purple-500/5 border border-purple-500/10 p-2.5 rounded-xl">
+                    <span className="font-bold text-purple-400">🐍 貪食蛇與墨跡</span>
+                    <p className="text-[11px] mt-0.5">巨蟒移動時會吞噬您的字元且<strong>越吃越長</strong>（增加「贅」字）。爬行過後會留下 3 回合「黑色墨跡」（無法填字）。</p>
+                  </div>
+                </>
+              )}
+
+              <div className="bg-cyan-500/5 border border-cyan-500/10 p-2.5 rounded-xl">
+                <span className="font-bold text-cyan-400">🧹 戰場已清理</span>
+                <p className="text-[11px] mt-0.5">為了留出戰鬥空間，盤面已自動清理，<strong>僅隨機保留了 3 組成語</strong>！</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setShowBossTutorial(false)}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-500 hover:to-purple-500 text-white font-black text-sm transition-all active:scale-95 shadow-[0_4px_15px_rgba(239,68,68,0.3)] cursor-pointer text-center"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white font-bold text-sm transition-all active:scale-95 shadow-[0_4px_12px_rgba(239,68,68,0.2)] cursor-pointer text-center"
             >
-              我理解了，開始戰鬥！
+              開始戰鬥
             </button>
           </div>
         </div>
