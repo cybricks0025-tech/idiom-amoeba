@@ -710,7 +710,7 @@ export default function Home() {
     // Load idioms wordlist for quick validation
     addLog("正在載入成語檢索庫...", "system");
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-    const version = "1.30"; // Cache-busting version parameter matching UI version
+    const version = "1.31"; // Cache-busting version parameter matching UI version
     
     fetch(`${basePath}/idioms_words.json?v=${version}`)
       .then((res) => {
@@ -985,7 +985,7 @@ export default function Home() {
   };
 
   const handleBossDefeated = () => {
-    const bossName = chapter === 1 ? "【贅字史萊姆】" : "【沙漏文曲星】";
+    const bossName = chapter === 1 ? "【贅字史萊姆】" : chapter === 2 ? "【沙漏文曲星】" : "【竹簡巨蟒】";
     addLog(`🎉🎉🎉 恭喜！您成功擊敗了第 ${chapter} 章 BOSS ${bossName}！`, "success");
     setShowVictoryOverlay(true);
     playExplosionSound();
@@ -1443,7 +1443,7 @@ export default function Home() {
               pythonHitThisTurn = true;
               dealDamageToBoss = true;
               bossDamage = 150;
-              addLog("💥 【擊中 BOSS】您的成語成功攔截了【竹簡巨蟒】的去路！造成了 150 點傷害！", "success");
+              addLog("🎯 【成功攔截】您的成語成功擋在了【竹簡巨蟒】的前進路線上！", "success");
             }
           }
 
@@ -1486,7 +1486,7 @@ export default function Home() {
             if (isCollision) {
               dealDamageToBoss = true;
               bossDamage = 150;
-              addLog(`💥 【巨蟒吞噬】 【竹簡巨蟒】吞噬了您的成語字元，身體變長了 1 格！並受到 150 點傷害！`, "error");
+              addLog("⚠️ 【巨蟒吞噬】 【竹簡巨蟒】在前進時吞噬了您的成語字元並變長了 1 格！", "error");
             } else {
               const oldTail = oldBody[oldBody.length - 1];
               addLog(`🐍 【竹簡巨蟒】向前爬行了一格，並在尾部 ${COL_LABELS[oldTail.c]}${oldTail.r + 1} 留下了黑色墨跡！`, "info");
@@ -1507,7 +1507,7 @@ export default function Home() {
       setScreenShake(true);
       setTimeout(() => setScreenShake(false), 300);
 
-      const bossTitle = chapter === 1 ? "贅字史萊姆" : "沙漏文曲星";
+      const bossTitle = chapter === 1 ? "贅字史萊姆" : chapter === 2 ? "沙漏文曲星" : "竹簡巨蟒";
       if (defusedBombThisTurn) {
         addLog(`💥 【時空解除】成功穿過炸彈格！對【${bossTitle}】造成了雙倍傷害 (${bossDamage} 點)！(剩餘 HP: ${nextBossHp})`, "success");
       } else {
@@ -1932,7 +1932,7 @@ export default function Home() {
                 <h1 className="text-4xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(236,72,153,0.2)] dark:drop-shadow-[0_0_15px_rgba(236,72,153,0.4)] flex items-center justify-center md:justify-start">
                   <span>成語阿米巴</span>
                   <span className="text-xs font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 px-2 py-0.5 rounded ml-3 align-middle select-none">
-                    v1.30
+                    v1.31
                   </span>
                 </h1>
                 <p className="text-sm text-text-secondary mt-2 uppercase tracking-widest font-mono font-bold">
@@ -2176,7 +2176,7 @@ export default function Home() {
                   <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(236,72,153,0.15)] dark:drop-shadow-[0_0_10px_rgba(236,72,153,0.3)] flex items-center justify-center md:justify-start">
                     <span>成語阿米巴</span>
                     <span className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 px-1.5 py-0.5 rounded ml-2 align-middle select-none">
-                      v1.30
+                      v1.31
                     </span>
                   </h1>
                   <p className="text-xs text-text-secondary mt-1 uppercase tracking-widest font-mono">
@@ -3439,7 +3439,7 @@ export default function Home() {
                     💡 <strong className="text-text-primary">提示限制</strong>：初始 3 次提示。使用提示消耗提示次數，次數為 0時無法再使用。
                   </p>
                   <p>
-                    👹 <strong className="text-text-primary">首領降臨與機制</strong>：每章得分達到目標分時 BOSS 降臨（第一章 300 分，第二章 500 分）。BOSS 會佔據中央區域。
+                    👹 <strong className="text-text-primary">首領降臨與機制</strong>：每章得分達到 500 分時 BOSS 降臨。BOSS 會佔據中央區域。
                   </p>
                   <p>
                     🦠 <strong className="text-text-primary">第一章【贅字史萊姆】</strong>：每回合會噴灑「贅字阻擋格」封鎖網格。在 BOSS 核心相鄰格放置成語可對其造成傷害。
@@ -3447,8 +3447,8 @@ export default function Home() {
                   <p>
                     ⏳ <strong className="text-text-primary">第二章【沙漏文曲星】</strong>：每 3 回合鎖定盤面一個安全字發動 20 秒「時空炸彈」。若 20 秒內未透過放置成語交叉穿過解除，炸彈將爆炸並清除周圍 3x3 已填字格且扣除 1 生命。穿過炸彈格解鎖則可對 BOSS 造成雙倍傷害（且無視相鄰限制）。
                   </p>
-                  <p>
-                    🐍 <strong className="text-text-primary">第三章【竹簡巨蟒】</strong>：巨蟒長度為 4 格（由「竹簡巨蟒」字元組成）在網格中追獵游動。移動過後會殘留 3 回合「黑色墨跡」（不可填字）。在巨蟒前進的「預期路徑（紅框🎯）」上佈置成語攔截，或前進時撞擊成語字元，均可對其造成 150 點傷害並使其暈眩停頓一回合。
+                                    <p>
+                    🐍 <strong className="text-text-primary">第三章【竹簡巨蟒】</strong>：巨蟒起始長度為 6 格（由「竹簡巨蟒贅贅」字元組成）在網格中追獵游動。移動過後會殘留 3 回合「黑色墨跡」（不可填字）。在巨蟒前進的「預期路徑（紅框🎯）」上佈置成語進行攔截可使其原地停頓，前進時若吞噬您的成語字元會使其變長。兩種碰撞均對其造成 150 點傷害。每放置一個成語，巨蟒就會行動一次。
                   </p>
                   <p>
                     🏆 <strong className="text-text-primary">遺物系統</strong>：每一章達到里程碑得分時（200 / 400 分）觸發遺物三選一，獲得強大的被動增益！
@@ -3523,7 +3523,12 @@ export default function Home() {
             </p>
             <div className="h-0.5 w-40 bg-gradient-to-r from-transparent via-yellow-500 to-transparent my-2"></div>
             <p className="text-xs text-text-secondary leading-relaxed font-semibold">
-              你成功淨化了阿米巴細胞盤面上的贅字史萊姆！正在重整結構，晉級至第 {chapter + 1} 章...
+              {chapter === 1
+                ? "你成功淨化了阿米巴細胞盤面上的贅字史萊姆！"
+                : chapter === 2
+                ? "你成功解除了沙漏文曲星的時空炸彈威脅！"
+                : "你成功制服了在網格中游動吞噬的竹簡巨蟒！"}
+              正在重整結構，晉級至第 {chapter + 1} 章...
             </p>
             <div className="mt-4 flex items-center gap-2 bg-yellow-950/40 border border-yellow-500/20 px-4 py-2 rounded-xl text-yellow-500 font-mono text-xs">
               <span className="animate-spin inline-block mr-1">🌀</span> CHAPTER {chapter} COMPLETED
