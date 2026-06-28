@@ -141,7 +141,6 @@ export default function Home() {
   // --- Chapter 3 Boss [竹簡巨蟒] States ---
   const [pythonBody, setPythonBody] = useState<{ r: number; c: number }[]>([]);
   const [pythonNextMove, setPythonNextMove] = useState<{ r: number; c: number } | null>(null);
-  const [pythonStunned, setPythonStunned] = useState<boolean>(false);
   const [inkCells, setInkCells] = useState<Record<string, number>>({});
 
   // --- Boss Tutorial States ---
@@ -409,8 +408,7 @@ export default function Home() {
     setDuplicateWarning(null);
     setPythonBody([]);
     setPythonNextMove(null);
-    setPythonStunned(false);
-    setInkCells({});
+        setInkCells({});
   };
 
   // Switch modes handler
@@ -468,8 +466,7 @@ export default function Home() {
     setDuplicateWarning(null);
     setPythonBody([]);
     setPythonNextMove(null);
-    setPythonStunned(false);
-    setInkCells({});
+        setInkCells({});
 
     // Auto-place random starter word in center
     const randomWord = STARTING_IDIOMS[Math.floor(Math.random() * STARTING_IDIOMS.length)];
@@ -713,7 +710,7 @@ export default function Home() {
     // Load idioms wordlist for quick validation
     addLog("正在載入成語檢索庫...", "system");
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-    const version = "1.28"; // Cache-busting version parameter matching UI version
+    const version = "1.30"; // Cache-busting version parameter matching UI version
     
     fetch(`${basePath}/idioms_words.json?v=${version}`)
       .then((res) => {
@@ -1062,8 +1059,7 @@ export default function Home() {
       setDuplicateWarning(null);
       setPythonBody([]);
       setPythonNextMove(null);
-      setPythonStunned(false);
-      setInkCells({});
+            setInkCells({});
       
       setGrid(newGrid);
       setCellOwners(newCellOwners);
@@ -1447,19 +1443,13 @@ export default function Home() {
               pythonHitThisTurn = true;
               dealDamageToBoss = true;
               bossDamage = 150;
-              setPythonStunned(true);
-              addLog("💥 【擊中 BOSS】您的成語成功攔截了【竹簡巨蟒】的去路！造成了 150 點傷害，並使其停頓一回合！", "success");
+              addLog("💥 【擊中 BOSS】您的成語成功攔截了【竹簡巨蟒】的去路！造成了 150 點傷害！", "success");
             }
           }
 
           if (pythonHitThisTurn) {
             const nextM = getPythonNextMove(pythonBody, newGrid, rockCells);
             setPythonNextMove(nextM);
-          } else if (pythonStunned) {
-            setPythonStunned(false);
-            const nextM = getPythonNextMove(pythonBody, newGrid, rockCells);
-            setPythonNextMove(nextM);
-            addLog("🐍 【竹簡巨蟒】從暈眩中恢復，本回合停頓原地！", "info");
           } else if (pythonNextMove) {
             const oldBody = [...pythonBody];
             const newHead = pythonNextMove;
@@ -1496,8 +1486,7 @@ export default function Home() {
             if (isCollision) {
               dealDamageToBoss = true;
               bossDamage = 150;
-              setPythonStunned(true);
-              addLog(`💥 【巨蟒吞噬】 【竹簡巨蟒】吞噬了您的成語字元，身體變長了 1 格！並受到 150 點傷害陷入暈眩！`, "error");
+              addLog(`💥 【巨蟒吞噬】 【竹簡巨蟒】吞噬了您的成語字元，身體變長了 1 格！並受到 150 點傷害！`, "error");
             } else {
               const oldTail = oldBody[oldBody.length - 1];
               addLog(`🐍 【竹簡巨蟒】向前爬行了一格，並在尾部 ${COL_LABELS[oldTail.c]}${oldTail.r + 1} 留下了黑色墨跡！`, "info");
@@ -1771,8 +1760,7 @@ export default function Home() {
             { r: centerIdx, c: centerIdx - 5 }
           ];
           setPythonBody(initialBody);
-          setPythonStunned(false);
-          setInkCells({});
+                    setInkCells({});
           
           const nextM = getPythonNextMove(initialBody, newGrid, rockCells);
           setPythonNextMove(nextM);
@@ -1944,7 +1932,7 @@ export default function Home() {
                 <h1 className="text-4xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(236,72,153,0.2)] dark:drop-shadow-[0_0_15px_rgba(236,72,153,0.4)] flex items-center justify-center md:justify-start">
                   <span>成語阿米巴</span>
                   <span className="text-xs font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 px-2 py-0.5 rounded ml-3 align-middle select-none">
-                    v1.28
+                    v1.30
                   </span>
                 </h1>
                 <p className="text-sm text-text-secondary mt-2 uppercase tracking-widest font-mono font-bold">
@@ -2188,7 +2176,7 @@ export default function Home() {
                   <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(236,72,153,0.15)] dark:drop-shadow-[0_0_10px_rgba(236,72,153,0.3)] flex items-center justify-center md:justify-start">
                     <span>成語阿米巴</span>
                     <span className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 px-1.5 py-0.5 rounded ml-2 align-middle select-none">
-                      v1.28
+                      v1.30
                     </span>
                   </h1>
                   <p className="text-xs text-text-secondary mt-1 uppercase tracking-widest font-mono">
