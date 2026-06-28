@@ -710,7 +710,7 @@ export default function Home() {
     // Load idioms wordlist for quick validation
     addLog("正在載入成語檢索庫...", "system");
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-    const version = "1.18"; // Cache-busting version parameter matching UI version
+    const version = "1.22"; // Cache-busting version parameter matching UI version
     
     fetch(`${basePath}/idioms_words.json?v=${version}`)
       .then((res) => {
@@ -1888,7 +1888,7 @@ export default function Home() {
                 <h1 className="text-4xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(236,72,153,0.2)] dark:drop-shadow-[0_0_15px_rgba(236,72,153,0.4)] flex items-center justify-center md:justify-start">
                   <span>成語阿米巴</span>
                   <span className="text-xs font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 px-2 py-0.5 rounded ml-3 align-middle select-none">
-                    v1.18
+                    v1.22
                   </span>
                 </h1>
                 <p className="text-sm text-text-secondary mt-2 uppercase tracking-widest font-mono font-bold">
@@ -2132,7 +2132,7 @@ export default function Home() {
                   <h1 className="text-3xl md:text-4xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 dark:from-cyan-400 dark:via-purple-400 dark:to-pink-500 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(236,72,153,0.15)] dark:drop-shadow-[0_0_10px_rgba(236,72,153,0.3)] flex items-center justify-center md:justify-start">
                     <span>成語阿米巴</span>
                     <span className="text-[10px] font-mono font-bold bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 px-1.5 py-0.5 rounded ml-2 align-middle select-none">
-                      v1.18
+                      v1.22
                     </span>
                   </h1>
                   <p className="text-xs text-text-secondary mt-1 uppercase tracking-widest font-mono">
