@@ -264,19 +264,11 @@ export default function Home() {
   };
 
   const getTargetScoreForChapter = (ch: number) => {
-    if (ch === 1) return 300;
-    if (ch === 2) return 500;
-    if (ch === 3) return 1200;
-    if (ch === 4) return 1500;
-    return 2000;
+    return 500;
   };
 
   const getRelicCheckpointsForChapter = (ch: number) => {
-    if (ch === 1) return [100, 200];
-    if (ch === 2) return [200, 400];
-    if (ch === 3) return [500, 1000];
-    if (ch === 4) return [600, 1200];
-    return [700, 1500];
+    return [200, 400];
   };
 
   const getPythonNextMove = (
@@ -1005,6 +997,9 @@ export default function Home() {
       setChapterScore(0);
       setRelicCheckpointsTriggered(new Set());
       setBossActive(false);
+      setHp(maxHp);
+      setHintsCount(maxHints);
+      addLog("💖 【關卡獎勵】成功通關！血量與提示次數已完全補滿！", "success");
       
       // Auto-place next starter word with dynamic grid size
       const size = getGridSizeForChapter(nextChapter, gameMode);
@@ -3412,7 +3407,7 @@ export default function Home() {
                     🐍 <strong className="text-text-primary">第三章【竹簡巨蟒】</strong>：巨蟒長度為 4 格（由「竹簡巨蟒」字元組成）在網格中追獵游動。移動過後會殘留 3 回合「黑色墨跡」（不可填字）。在巨蟒前進的「預期路徑（紅框🎯）」上佈置成語攔截，或前進時撞擊成語字元，均可對其造成 150 點傷害並使其暈眩停頓一回合。
                   </p>
                   <p>
-                    🏆 <strong className="text-text-primary">遺物系統</strong>：達到里程碑得分時（第一章 100/200 分，第二章 200/400 分）觸發遺物三選一，獲得強大的被動增益！
+                    🏆 <strong className="text-text-primary">遺物系統</strong>：每一章達到里程碑得分時（200 / 400 分）觸發遺物三選一，獲得強大的被動增益！
                   </p>
                 </div>
               )}
